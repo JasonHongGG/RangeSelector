@@ -24,10 +24,17 @@ function MainWindow() {
       const context = canvas.getContext('2d', { willReadFrequently: true });
       if (context) {
         setCtx(context);
-        const img = new Image();
+        const img = new globalThis.Image();
         img.onload = () => {
+          // Set physical dimensions
           canvas.width = img.width;
           canvas.height = img.height;
+          
+          // Set CSS display size to logical dimensions (1:1 with screen)
+          const dpr = window.devicePixelRatio || 1;
+          canvas.style.width = `${img.width / dpr}px`;
+          canvas.style.height = `${img.height / dpr}px`;
+          
           context.drawImage(img, 0, 0);
           setHistory([context.getImageData(0, 0, canvas.width, canvas.height)]);
           setRedoStack([]);
@@ -419,19 +426,22 @@ function SelectionWindow() {
 
     // Crop image
     if (bgImage) {
-      const img = new Image();
+      const img = new globalThis.Image();
       img.onload = async () => {
+        const dpr = window.devicePixelRatio || 1;
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        
+        // Physical pixels for high quality
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
-          // Multiply crop coordinates by the scale factor of the image vs logical screen
-          // Alternatively we can use window.devicePixelRatio, but img.width/window.innerWidth is safer if there are multi-monitor differences in the single captured image.
-          const scaleX = img.width / window.innerWidth;
-          const scaleY = img.height / window.innerHeight;
-          
-          ctx.drawImage(img, x * scaleX, y * scaleY, width * scaleX, height * scaleY, 0, 0, width, height);
+          ctx.drawImage(
+            img, 
+            x * dpr, y * dpr, width * dpr, height * dpr, 
+            0, 0, canvas.width, canvas.height
+          );
           const dataUrl = canvas.toDataURL('image/png');
           
           import('@tauri-apps/api/event').then(async ({ emit }) => {

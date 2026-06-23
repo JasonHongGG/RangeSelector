@@ -465,7 +465,7 @@ function SelectionWindow() {
 
   return (
     <div 
-      className="w-screen h-screen cursor-crosshair select-none bg-black/10 animate-fade-in"
+      className="w-screen h-screen cursor-crosshair select-none bg-black/10 animate-fade-in overflow-hidden"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -474,10 +474,11 @@ function SelectionWindow() {
         backgroundSize: '100% 100%'
       }}
     >
-      <div className="absolute inset-0 bg-black/50 pointer-events-none transition-colors" />
+      <div className={`absolute inset-0 bg-black/50 pointer-events-none transition-opacity ${isSelecting ? 'opacity-0' : 'opacity-100'}`} />
+      
       {isSelecting && (
         <div 
-          className="absolute border border-white/30 backdrop-blur-none"
+          className="absolute border border-white/30"
           style={{
             ...selectStyle,
             boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)', // Dim outside
@@ -490,24 +491,9 @@ function SelectionWindow() {
           <div className="absolute -bottom-[1px] -right-[1px] w-3 h-3 border-b-2 border-r-2 border-blue-400" />
           
           {/* Dimension indicator */}
-          <div className="absolute -top-7 left-0 bg-black/70 backdrop-blur text-white text-[10px] px-2 py-0.5 rounded font-mono tracking-wider border border-white/10 opacity-80">
+          <div className="absolute -top-7 left-0 bg-black/70 backdrop-blur text-white text-[10px] px-2 py-0.5 rounded font-mono tracking-wider border border-white/10 opacity-80 whitespace-nowrap">
             {Math.round(selectStyle.width)} × {Math.round(selectStyle.height)}
           </div>
-
-          {bgImage && (
-            <div className="w-full h-full overflow-hidden absolute inset-0 -z-10">
-              <img 
-                src={bgImage} 
-                className="max-w-none absolute"
-                style={{
-                  left: -selectStyle.left,
-                  top: -selectStyle.top,
-                  width: '100vw',
-                  height: '100vh',
-                }}
-              />
-            </div>
-          )}
         </div>
       )}
     </div>

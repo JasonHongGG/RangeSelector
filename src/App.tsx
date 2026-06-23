@@ -21,7 +21,7 @@ function MainWindow() {
   useEffect(() => {
     if (isEditing && imageSrc && canvasRef.current) {
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
       if (context) {
         setCtx(context);
         const img = new Image();
@@ -104,10 +104,13 @@ function MainWindow() {
   };
 
   useEffect(() => {
-    let unlistenFn: () => void;
+    let isMounted = true;
+    let unlistenCrop: (() => void) | undefined;
+    let unlistenLoad: (() => void) | undefined;
     
-    import('@tauri-apps/api/event').then(({ listen }) => {
-      listen('crop_result', async (event: any) => {
+    const setup = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const u1 = await listen('crop_result', async (event: any) => {
         const dataUrl = event.payload.dataUrl;
         setImageSrc(dataUrl);
         setIsEditing(true);
@@ -116,21 +119,22 @@ function MainWindow() {
         } catch(e) {
           console.error("Failed to save history", e);
         }
-      }).then(unlisten => {
-        unlistenFn = unlisten;
       });
+      if (!isMounted) u1(); else unlistenCrop = u1;
       
-      listen('load_history', async (event: any) => {
+      const u2 = await listen('load_history', async (event: any) => {
         const dataUrl = event.payload.dataUrl;
         setImageSrc(dataUrl);
         setIsEditing(true);
-      }).then(() => {
-        // ... handled same way ideally, but keeping it simple for now
       });
-    });
+      if (!isMounted) u2(); else unlistenLoad = u2;
+    };
+    setup();
 
     return () => {
-      if (unlistenFn) unlistenFn();
+      isMounted = false;
+      if (unlistenCrop) unlistenCrop();
+      if (unlistenLoad) unlistenLoad();
     };
   }, []);
 
@@ -263,11 +267,16 @@ function MainWindow() {
               className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 transition-all hover:scale-105 active:scale-95"
               onClick={async () => {
                 if (canvasRef.current) {
-                  const dataUrl = canvasRef.current.toDataURL('image/png');
-                  const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
                   try {
-                    const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
-                    await writeImage(bytes);
+                    const canvas = canvasRef.current;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    if (ctx) {
+                      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                      const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
+                      const { Image } = await import('@tauri-apps/api/image');
+                      const img = await Image.new(new Uint8Array(imageData.data), canvas.width, canvas.height);
+                      await writeImage(img);
+                    }
                   } catch (e) {
                     console.error("Copy failed", e);
                   }
@@ -414,7 +423,7 @@ function SelectionWindow() {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           // Multiply crop coordinates by the scale factor of the image vs logical screen
           // Alternatively we can use window.devicePixelRatio, but img.width/window.innerWidth is safer if there are multi-monitor differences in the single captured image.

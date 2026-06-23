@@ -47,10 +47,18 @@ fn get_last_capture(state: State<AppState>) -> Result<Vec<u8>, String> {
     }
 }
 
+fn get_runtime_dir() -> std::path::PathBuf {
+    let mut current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    if current_dir.file_name().and_then(|n| n.to_str()) == Some("src-tauri") {
+        current_dir = current_dir.parent().unwrap().to_path_buf();
+    }
+    current_dir.join(".runtime")
+}
+
 #[tauri::command]
 fn save_history(base64_data: String) -> Result<String, String> {
-    let current_dir = std::env::current_dir().map_err(|e| e.to_string())?;
-    let history_dir = current_dir.join(".runtime").join("history");
+    let runtime_dir = get_runtime_dir();
+    let history_dir = runtime_dir.join("history");
     fs::create_dir_all(&history_dir).map_err(|e| e.to_string())?;
     
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
@@ -62,7 +70,7 @@ fn save_history(base64_data: String) -> Result<String, String> {
     
     fs::write(&filepath, bytes.clone()).map_err(|e| e.to_string())?;
     
-    let history_json_path = current_dir.join(".runtime").join("history.json");
+    let history_json_path = runtime_dir.join("history.json");
     let mut history: Vec<HistoryItem> = if history_json_path.exists() {
         let content = fs::read_to_string(&history_json_path).unwrap_or_else(|_| "[]".to_string());
         serde_json::from_str(&content).unwrap_or_else(|_| vec![])
@@ -84,8 +92,8 @@ fn save_history(base64_data: String) -> Result<String, String> {
 
 #[tauri::command]
 fn get_history_list() -> Result<Vec<HistoryItem>, String> {
-    let current_dir = std::env::current_dir().map_err(|e| e.to_string())?;
-    let history_json_path = current_dir.join(".runtime").join("history.json");
+    let runtime_dir = get_runtime_dir();
+    let history_json_path = runtime_dir.join("history.json");
     if history_json_path.exists() {
         let content = fs::read_to_string(&history_json_path).map_err(|e| e.to_string())?;
         let mut history: Vec<HistoryItem> = serde_json::from_str(&content).map_err(|e| e.to_string())?;

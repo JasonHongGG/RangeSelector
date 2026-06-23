@@ -3,7 +3,7 @@ import TitleBar from "./components/TitleBar";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { ScanLine, History, Copy, Save, Palette } from "lucide-react";
+import { ScanLine, History, Copy, Save, Undo2, Redo2, XCircle, MousePointer2 } from "lucide-react";
 
 function MainWindow() {
   const [isEditing, setIsEditing] = useState(false);
@@ -37,26 +37,32 @@ function MainWindow() {
     }
   }, [isEditing, imageSrc]);
 
+  const handleUndo = () => {
+    if (history.length > 1 && ctx && canvasRef.current) {
+      const current = history[history.length - 1];
+      setRedoStack(prev => [...prev, current]);
+      const previous = history[history.length - 2];
+      ctx.putImageData(previous, 0, 0);
+      setHistory(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length > 0 && ctx && canvasRef.current) {
+      const next = redoStack[redoStack.length - 1];
+      ctx.putImageData(next, 0, 0);
+      setHistory(prev => [...prev, next]);
+      setRedoStack(prev => prev.slice(0, -1));
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) {
-          // Redo
-          if (redoStack.length > 0 && ctx && canvasRef.current) {
-            const next = redoStack[redoStack.length - 1];
-            ctx.putImageData(next, 0, 0);
-            setHistory(prev => [...prev, next]);
-            setRedoStack(prev => prev.slice(0, -1));
-          }
+          handleRedo();
         } else {
-          // Undo
-          if (history.length > 1 && ctx && canvasRef.current) {
-            const current = history[history.length - 1];
-            setRedoStack(prev => [...prev, current]);
-            const previous = history[history.length - 2];
-            ctx.putImageData(previous, 0, 0);
-            setHistory(prev => prev.slice(0, -1));
-          }
+          handleUndo();
         }
       }
     };
@@ -159,79 +165,102 @@ function MainWindow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
+    <div className="flex flex-col h-screen bg-[#0f1115]/95 backdrop-blur-2xl border border-white/5 rounded-xl overflow-hidden shadow-2xl relative transition-colors selection:bg-blue-500/30">
       <TitleBar>
-        {!isEditing ? (
-          <>
-            <button 
-              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-              onClick={handleCapture}
-              title="New Capture"
-            >
-              <ScanLine size={16} />
-            </button>
-            <button 
-              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-              onClick={async () => {
-                const existing = await WebviewWindow.getByLabel('history-window');
-                if (existing) {
-                  await existing.show();
-                  await existing.setFocus();
-                  return;
-                }
-                new WebviewWindow('history-window', {
-                  url: '/?window=history',
-                  title: 'History',
-                  width: 600,
-                  height: 500,
-                  transparent: true,
-                  decorations: false,
-                  center: true
-                });
-              }}
-              title="History"
-            >
-              <History size={16} />
-            </button>
-          </>
-        ) : (
-          <>
+        {/* Primary Actions Always Visible */}
+        <button 
+          className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all hover:scale-105 active:scale-95"
+          onClick={handleCapture}
+          title="New Capture"
+        >
+          <ScanLine size={16} />
+        </button>
+        <button 
+          className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-all hover:scale-105 active:scale-95"
+          onClick={async () => {
+            const existing = await WebviewWindow.getByLabel('history-window');
+            if (existing) {
+              await existing.show();
+              await existing.setFocus();
+              return;
+            }
+            new WebviewWindow('history-window', {
+              url: '/?window=history',
+              title: 'History',
+              width: 700,
+              height: 550,
+              transparent: true,
+              decorations: false,
+              center: true
+            });
+          }}
+          title="History"
+        >
+          <History size={16} />
+        </button>
+
+        {/* Contextual Actions (Visible only when editing) */}
+        {isEditing && (
+          <div className="flex items-center animate-fade-in pl-1 ml-1 border-l border-white/10 gap-1">
             <div className="relative">
               <button 
-                className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 transition-colors"
+                className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
                 onClick={() => setShowPalette(!showPalette)}
                 title="Color & Brush"
               >
-                <div className="w-4 h-4 rounded-full border border-white/50 shadow-sm" style={{ backgroundColor: color }} />
+                <div className="w-4 h-4 rounded-full border border-white/50 shadow-sm transition-colors" style={{ backgroundColor: color }} />
               </button>
               
               {showPalette && (
-                <div className="absolute top-10 right-0 bg-gray-800 border border-white/10 rounded-lg shadow-xl p-3 flex flex-col gap-3 z-50 animate-fade-in origin-top-right">
-                  <div className="flex gap-2">
-                    {['#ef4444', '#3b82f6', '#10b981', '#eab308', '#a855f7', '#ffffff', '#000000'].map(c => (
+                <div className="absolute top-10 right-0 bg-gray-800/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-4 flex flex-col gap-4 z-50 animate-scale-in origin-top-right w-56">
+                  <div className="flex flex-wrap gap-2">
+                    {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#9ca3af', '#000000'].map(c => (
                       <button
                         key={c}
-                        className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'scale-110 ring-2 ring-white' : 'hover:scale-110 border border-white/20'}`}
+                        className={`w-6 h-6 rounded-full transition-all duration-300 ${color === c ? 'scale-110 ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-800' : 'hover:scale-110 hover:ring-1 ring-white/50'}`}
                         style={{ backgroundColor: c }}
                         onClick={() => setColor(c)}
                       />
                     ))}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-white/50 font-medium">Brush Size</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-white/50 font-medium">Brush Size</span>
+                      <span className="text-xs text-white/90 font-mono bg-white/10 px-1.5 py-0.5 rounded">{brushSize}px</span>
+                    </div>
                     <input 
                       type="range" 
-                      min="1" max="20" 
+                      min="1" max="30" 
                       value={brushSize} 
                       onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                      className="w-full accent-blue-500"
+                      className="w-full accent-blue-500 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                 </div>
               )}
             </div>
+
             <button 
-              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              className={`flex justify-center items-center w-8 h-8 rounded-md transition-all ${history.length > 1 ? 'hover:bg-white/10 text-white/70 hover:text-white hover:scale-105 active:scale-95' : 'text-white/20 cursor-not-allowed'}`}
+              onClick={handleUndo}
+              disabled={history.length <= 1}
+              title="Undo"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button 
+              className={`flex justify-center items-center w-8 h-8 rounded-md transition-all ${redoStack.length > 0 ? 'hover:bg-white/10 text-white/70 hover:text-white hover:scale-105 active:scale-95' : 'text-white/20 cursor-not-allowed'}`}
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              title="Redo"
+            >
+              <Redo2 size={16} />
+            </button>
+
+            <div className="w-px h-4 bg-white/10 mx-1" />
+
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 transition-all hover:scale-105 active:scale-95"
               onClick={async () => {
                 if (canvasRef.current) {
                   const dataUrl = canvasRef.current.toDataURL('image/png');
@@ -244,12 +273,12 @@ function MainWindow() {
                   }
                 }
               }}
-              title="Copy"
+              title="Copy to Clipboard"
             >
               <Copy size={16} />
             </button>
             <button 
-              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-green-500/20 text-green-400 hover:text-green-300 transition-all hover:scale-105 active:scale-95"
               onClick={async () => {
                 if (canvasRef.current) {
                   try {
@@ -266,30 +295,58 @@ function MainWindow() {
                   }
                 }
               }}
-              title="Export"
+              title="Export Image"
             >
               <Save size={16} />
             </button>
-          </>
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all hover:scale-105 active:scale-95 ml-1"
+              onClick={() => setIsEditing(false)}
+              title="Discard"
+            >
+              <XCircle size={16} />
+            </button>
+          </div>
         )}
       </TitleBar>
-      <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0">
+
+      <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
         {!isEditing ? (
-          <div className="flex flex-col items-center gap-4">
-            <h1 className="text-2xl font-bold text-white/90">RangeSelector</h1>
-            <p className="text-white/50 text-sm">Select an area to capture</p>
+          <div 
+            className="flex flex-col items-center justify-center w-full h-full cursor-pointer group animate-fade-in"
+            onClick={handleCapture}
+          >
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border border-white/5 scale-[1.2] group-hover:border-blue-400/20 transition-all duration-700" />
+              <div className="absolute inset-0 rounded-full border-2 border-dashed border-white/10 scale-150 animate-pulse-slow group-hover:border-blue-500/30 transition-all duration-700" />
+              
+              <div className="relative w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-blue-500/10 group-hover:border-blue-500/40 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500 overflow-hidden z-10">
+                <ScanLine size={32} className="text-white/20 group-hover:text-blue-400 group-hover:-translate-y-1 transition-all duration-500" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-transparent via-blue-400/20 to-transparent -translate-y-full group-hover:animate-[slide-up_1.5s_ease-in-out_infinite]" />
+              </div>
+            </div>
+            
+            <div className="mt-12 flex flex-col items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+              <span className="text-[11px] font-bold tracking-[0.2em] text-white/50 uppercase">Ready to Capture</span>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col w-full h-full min-h-0">
-            <div className="flex-1 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden relative">
+          <div className="flex flex-col w-full h-full min-h-0 animate-scale-in p-4">
+            <div className="flex-1 rounded-lg border border-white/5 bg-black/40 shadow-inner flex items-center justify-center overflow-hidden relative cursor-crosshair group">
               <canvas
                 ref={canvasRef}
-                className="max-w-full max-h-full object-contain cursor-crosshair"
+                className="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform duration-300"
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
               />
+              {!isDrawing && (
+                <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <MousePointer2 size={12} className="text-white/50" />
+                  <span className="text-[10px] text-white/70 tracking-widest uppercase font-bold">Draw to annotate</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -388,7 +445,7 @@ function SelectionWindow() {
 
   return (
     <div 
-      className="w-screen h-screen cursor-crosshair select-none bg-black/10"
+      className="w-screen h-screen cursor-crosshair select-none bg-black/10 animate-fade-in"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -397,20 +454,28 @@ function SelectionWindow() {
         backgroundSize: '100% 100%'
       }}
     >
-      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-black/50 pointer-events-none transition-colors" />
       {isSelecting && (
         <div 
-          className="absolute border-2 border-blue-500 bg-blue-500/20 backdrop-blur-none"
+          className="absolute border border-white/30 backdrop-blur-none"
           style={{
             ...selectStyle,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)', // Dim outside
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)', // Dim outside
           }}
         >
-          {/* We need to show the clear image inside the selection */}
+          {/* Corner highlights */}
+          <div className="absolute -top-[1px] -left-[1px] w-3 h-3 border-t-2 border-l-2 border-blue-400" />
+          <div className="absolute -top-[1px] -right-[1px] w-3 h-3 border-t-2 border-r-2 border-blue-400" />
+          <div className="absolute -bottom-[1px] -left-[1px] w-3 h-3 border-b-2 border-l-2 border-blue-400" />
+          <div className="absolute -bottom-[1px] -right-[1px] w-3 h-3 border-b-2 border-r-2 border-blue-400" />
+          
+          {/* Dimension indicator */}
+          <div className="absolute -top-7 left-0 bg-black/70 backdrop-blur text-white text-[10px] px-2 py-0.5 rounded font-mono tracking-wider border border-white/10 opacity-80">
+            {Math.round(selectStyle.width)} × {Math.round(selectStyle.height)}
+          </div>
+
           {bgImage && (
-            <div 
-              className="w-full h-full overflow-hidden absolute inset-0"
-            >
+            <div className="w-full h-full overflow-hidden absolute inset-0 -z-10">
               <img 
                 src={bgImage} 
                 className="max-w-none absolute"
@@ -489,16 +554,20 @@ function HistoryWindow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-      <TitleBar title="History" />
-      <div className="flex-1 p-4 overflow-y-auto">
-        <h2 className="text-xl font-bold text-white/90 mb-4">Capture History</h2>
+    <div className="flex flex-col h-screen bg-[#0f1115]/95 backdrop-blur-2xl border border-white/5 rounded-xl overflow-hidden shadow-2xl transition-colors selection:bg-blue-500/30">
+      <TitleBar title="History Library" />
+      <div className="flex-1 p-6 overflow-y-auto">
         {history.length === 0 ? (
-          <div className="text-white/50 text-center py-10">No history found.</div>
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-white/30 animate-fade-in">
+            <History size={48} className="opacity-20" />
+            <span className="text-xs uppercase tracking-[0.2em] font-bold">No captures yet</span>
+          </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {history.map(item => (
-              <HistoryItemComponent key={item.id} item={item} onSelect={handleSelect} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 animate-slide-up">
+            {history.map((item, index) => (
+              <div key={item.id} style={{ animationDelay: `${index * 50}ms` }} className="animate-fade-in">
+                <HistoryItemComponent item={item} onSelect={handleSelect} />
+              </div>
             ))}
           </div>
         )}

@@ -18,7 +18,10 @@
     "core:event:allow-emit",
     "opener:default",
     "dialog:default",
+    "dialog:allow-save",
     "fs:default",
-    "clipboard-manager:default"
+    "fs:allow-write-file",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-write-image"
   ]
 }

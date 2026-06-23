@@ -3,6 +3,7 @@ import TitleBar from "./components/TitleBar";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
+import { ScanLine, History, Copy, Save, Palette } from "lucide-react";
 
 function MainWindow() {
   const [isEditing, setIsEditing] = useState(false);
@@ -10,6 +11,8 @@ function MainWindow() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [color, setColor] = useState('#ef4444'); // red-500
+  const [brushSize, setBrushSize] = useState(4);
+  const [showPalette, setShowPalette] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [redoStack, setRedoStack] = useState<ImageData[]>([]);
@@ -63,6 +66,7 @@ function MainWindow() {
 
   const startDrawing = (e: React.MouseEvent) => {
     if (!ctx || !canvasRef.current) return;
+    setShowPalette(false);
     setIsDrawing(true);
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
@@ -70,7 +74,7 @@ function MainWindow() {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = brushSize;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   };
@@ -155,47 +159,129 @@ function MainWindow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-      <TitleBar />
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+    <div className="flex flex-col h-screen bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl relative">
+      <TitleBar>
+        {!isEditing ? (
+          <>
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              onClick={handleCapture}
+              title="New Capture"
+            >
+              <ScanLine size={16} />
+            </button>
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              onClick={async () => {
+                const existing = await WebviewWindow.getByLabel('history-window');
+                if (existing) {
+                  await existing.show();
+                  await existing.setFocus();
+                  return;
+                }
+                new WebviewWindow('history-window', {
+                  url: '/?window=history',
+                  title: 'History',
+                  width: 600,
+                  height: 500,
+                  transparent: true,
+                  decorations: false,
+                  center: true
+                });
+              }}
+              title="History"
+            >
+              <History size={16} />
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="relative">
+              <button 
+                className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 transition-colors"
+                onClick={() => setShowPalette(!showPalette)}
+                title="Color & Brush"
+              >
+                <div className="w-4 h-4 rounded-full border border-white/50 shadow-sm" style={{ backgroundColor: color }} />
+              </button>
+              
+              {showPalette && (
+                <div className="absolute top-10 right-0 bg-gray-800 border border-white/10 rounded-lg shadow-xl p-3 flex flex-col gap-3 z-50 animate-fade-in origin-top-right">
+                  <div className="flex gap-2">
+                    {['#ef4444', '#3b82f6', '#10b981', '#eab308', '#a855f7', '#ffffff', '#000000'].map(c => (
+                      <button
+                        key={c}
+                        className={`w-6 h-6 rounded-full transition-transform ${color === c ? 'scale-110 ring-2 ring-white' : 'hover:scale-110 border border-white/20'}`}
+                        style={{ backgroundColor: c }}
+                        onClick={() => setColor(c)}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-white/50 font-medium">Brush Size</span>
+                    <input 
+                      type="range" 
+                      min="1" max="20" 
+                      value={brushSize} 
+                      onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                      className="w-full accent-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              onClick={async () => {
+                if (canvasRef.current) {
+                  const dataUrl = canvasRef.current.toDataURL('image/png');
+                  const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
+                  try {
+                    const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
+                    await writeImage(bytes);
+                  } catch (e) {
+                    console.error("Copy failed", e);
+                  }
+                }
+              }}
+              title="Copy"
+            >
+              <Copy size={16} />
+            </button>
+            <button 
+              className="flex justify-center items-center w-8 h-8 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              onClick={async () => {
+                if (canvasRef.current) {
+                  try {
+                    const { save } = await import('@tauri-apps/plugin-dialog');
+                    const { writeFile } = await import('@tauri-apps/plugin-fs');
+                    const path = await save({ filters: [{ name: 'Image', extensions: ['png'] }] });
+                    if (path) {
+                      const dataUrl = canvasRef.current.toDataURL('image/png');
+                      const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
+                      await writeFile(path, bytes);
+                    }
+                  } catch (e) {
+                    console.error("Export failed", e);
+                  }
+                }
+              }}
+              title="Export"
+            >
+              <Save size={16} />
+            </button>
+          </>
+        )}
+      </TitleBar>
+      <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0">
         {!isEditing ? (
           <div className="flex flex-col items-center gap-4">
             <h1 className="text-2xl font-bold text-white/90">RangeSelector</h1>
-            <p className="text-white/50 text-sm">Select an area to capture and edit</p>
-            <div className="flex gap-4 mt-4">
-              <button 
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg transition-all active:scale-95 flex items-center justify-center font-medium"
-                onClick={handleCapture}
-              >
-                New Capture
-              </button>
-              <button 
-                className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all active:scale-95 flex items-center justify-center font-medium"
-                onClick={async () => {
-                  const existing = await WebviewWindow.getByLabel('history-window');
-                  if (existing) {
-                    await existing.show();
-                    await existing.setFocus();
-                    return;
-                  }
-                  new WebviewWindow('history-window', {
-                    url: '/?window=history',
-                    title: 'History',
-                    width: 600,
-                    height: 500,
-                    transparent: true,
-                    decorations: false,
-                    center: true
-                  });
-                }}
-              >
-                History
-              </button>
-            </div>
+            <p className="text-white/50 text-sm">Select an area to capture</p>
           </div>
         ) : (
           <div className="flex flex-col w-full h-full min-h-0">
-            <div className="flex-1 bg-black/50 rounded-lg border border-white/5 mb-4 flex items-center justify-center overflow-hidden relative">
+            <div className="flex-1 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden relative">
               <canvas
                 ref={canvasRef}
                 className="max-w-full max-h-full object-contain cursor-crosshair"
@@ -204,56 +290,6 @@ function MainWindow() {
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
               />
-            </div>
-            <div className="flex justify-between items-center h-12 bg-white/5 rounded-lg px-4 flex-shrink-0">
-              <div className="flex gap-2">
-                <button 
-                  className={`w-8 h-8 rounded-full bg-red-500 transition-transform ${color === '#ef4444' ? 'scale-110 ring-2 ring-white' : 'hover:scale-110'}`}
-                  onClick={() => setColor('#ef4444')}
-                />
-                <button 
-                  className={`w-8 h-8 rounded-full bg-blue-500 transition-transform ${color === '#3b82f6' ? 'scale-110 ring-2 ring-white' : 'hover:scale-110'}`}
-                  onClick={() => setColor('#3b82f6')}
-                />
-                <button 
-                  className={`w-8 h-8 rounded-full bg-yellow-500 transition-transform ${color === '#eab308' ? 'scale-110 ring-2 ring-white' : 'hover:scale-110'}`}
-                  onClick={() => setColor('#eab308')}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-md text-sm font-medium transition-colors" onClick={() => setIsEditing(false)}>Cancel</button>
-                <button className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-md text-sm font-medium transition-colors" onClick={async () => {
-                  if (canvasRef.current) {
-                    const dataUrl = canvasRef.current.toDataURL('image/png');
-                    const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
-                    try {
-                      // For image: writeImage(new Uint8Array(...))
-                      const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
-                      await writeImage(bytes);
-                      // TODO: maybe show notification
-                    } catch (e) {
-                      console.error("Copy failed", e);
-                    }
-                  }
-                }}>Copy</button>
-                <button className="px-4 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-sm font-medium transition-colors" onClick={async () => {
-                  if (canvasRef.current) {
-                    try {
-                      const { save } = await import('@tauri-apps/plugin-dialog');
-                      // actually writeImage is not in plugin-fs. It's writeFile.
-                      const { writeFile } = await import('@tauri-apps/plugin-fs');
-                      const path = await save({ filters: [{ name: 'Image', extensions: ['png'] }] });
-                      if (path) {
-                        const dataUrl = canvasRef.current.toDataURL('image/png');
-                        const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
-                        await writeFile(path, bytes);
-                      }
-                    } catch (e) {
-                      console.error("Export failed", e);
-                    }
-                  }
-                }}>Export</button>
-              </div>
             </div>
           </div>
         )}
@@ -323,7 +359,12 @@ function SelectionWindow() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+          // Multiply crop coordinates by the scale factor of the image vs logical screen
+          // Alternatively we can use window.devicePixelRatio, but img.width/window.innerWidth is safer if there are multi-monitor differences in the single captured image.
+          const scaleX = img.width / window.innerWidth;
+          const scaleY = img.height / window.innerHeight;
+          
+          ctx.drawImage(img, x * scaleX, y * scaleY, width * scaleX, height * scaleY, 0, 0, width, height);
           const dataUrl = canvas.toDataURL('image/png');
           
           import('@tauri-apps/api/event').then(async ({ emit }) => {
@@ -388,6 +429,38 @@ function SelectionWindow() {
   );
 }
 
+function HistoryItemComponent({ item, onSelect }: { item: any, onSelect: (path: string) => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    invoke<number[]>("read_history_image", { path: item.path })
+      .then(bytes => {
+        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
+        setSrc(URL.createObjectURL(blob));
+      })
+      .catch(console.error);
+  }, [item.path]);
+
+  return (
+    <div 
+      className="aspect-video bg-black/50 rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-blue-500 transition-colors relative group"
+      onClick={() => onSelect(item.path)}
+      title={item.timestamp}
+    >
+      {src ? (
+        <img src={src} className="w-full h-full object-cover" alt="History item" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-white/30 text-xs animate-pulse">Loading...</span>
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-white/70 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <span>{item.timestamp}</span>
+      </div>
+    </div>
+  );
+}
+
 function HistoryWindow() {
   const [history, setHistory] = useState<any[]>([]);
 
@@ -425,21 +498,7 @@ function HistoryWindow() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {history.map(item => (
-              <div 
-                key={item.id} 
-                className="aspect-video bg-black/50 rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-blue-500 transition-colors"
-                onClick={() => handleSelect(item.path)}
-                title={item.timestamp}
-              >
-                <div className="w-full h-full flex flex-col">
-                  <div className="flex-1 p-2 flex items-center justify-center overflow-hidden">
-                    <span className="text-[10px] text-white/30 text-center break-all">{item.path.split(/[\/\\]/).pop()}</span>
-                  </div>
-                  <div className="bg-white/5 px-2 py-1 text-[11px] text-white/50 text-center">
-                    {item.timestamp}
-                  </div>
-                </div>
-              </div>
+              <HistoryItemComponent key={item.id} item={item} onSelect={handleSelect} />
             ))}
           </div>
         )}

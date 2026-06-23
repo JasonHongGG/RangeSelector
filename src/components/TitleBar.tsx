@@ -1,12 +1,14 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X } from 'lucide-react';
+import React from 'react';
 
 interface TitleBarProps {
   title?: string;
   onClose?: () => void;
+  children?: React.ReactNode;
 }
 
-export default function TitleBar({ title = 'RangeSelector', onClose }: TitleBarProps) {
+export default function TitleBar({ title = 'RangeSelector', onClose, children }: TitleBarProps) {
   const appWindow = getCurrentWindow();
 
   const handleMinimize = async (e: React.MouseEvent) => {
@@ -31,15 +33,20 @@ export default function TitleBar({ title = 'RangeSelector', onClose }: TitleBarP
       {/* Title Area */}
       <div 
         data-tauri-drag-region 
-        className="flex items-center pl-2 pointer-events-none w-full h-full"
+        className="flex items-center pl-2 pointer-events-none"
       >
         <span className="text-[13px] font-medium text-white/70 tracking-wider">
           {title}
         </span>
       </div>
       
-      {/* Window Controls */}
+      {/* Custom Actions & Window Controls */}
       <div className="flex items-center gap-1">
+        {children && (
+          <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-2">
+            {children}
+          </div>
+        )}
         <button
           className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-white/10 text-white/50 hover:text-white transition-colors"
           onClick={handleMinimize}

@@ -109,6 +109,27 @@ fn read_history_image(path: String) -> Result<Vec<u8>, String> {
     fs::read(path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn delete_history(id: String) -> Result<(), String> {
+    let runtime_dir = get_runtime_dir();
+    let history_json_path = runtime_dir.join("history.json");
+    
+    if history_json_path.exists() {
+        let content = fs::read_to_string(&history_json_path).map_err(|e| e.to_string())?;
+        let mut history: Vec<HistoryItem> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        
+        if let Some(pos) = history.iter().position(|item| item.id == id) {
+            let item = history.remove(pos);
+            let _ = fs::remove_file(item.path); // Ignore error if file is already gone
+            
+            let updated_json = serde_json::to_string_pretty(&history).map_err(|e| e.to_string())?;
+            fs::write(&history_json_path, updated_json).map_err(|e| e.to_string())?;
+        }
+    }
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -124,7 +145,8 @@ pub fn run() {
             get_last_capture,
             save_history,
             get_history_list,
-            read_history_image
+            read_history_image,
+            delete_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

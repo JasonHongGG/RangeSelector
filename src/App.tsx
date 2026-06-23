@@ -3,7 +3,7 @@ import TitleBar from "./components/TitleBar";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
-import { ScanLine, History, Copy, Save, Undo2, Redo2, XCircle, MousePointer2 } from "lucide-react";
+import { ScanLine, History, Copy, Save, Undo2, Redo2, XCircle, MousePointer2, Trash2 } from "lucide-react";
 
 function MainWindow() {
   const [isEditing, setIsEditing] = useState(false);
@@ -186,6 +186,7 @@ function MainWindow() {
             if (existing) {
               await existing.show();
               await existing.setFocus();
+              await existing.unminimize();
               return;
             }
             new WebviewWindow('history-window', {
@@ -503,7 +504,7 @@ function SelectionWindow() {
   );
 }
 
-function HistoryItemComponent({ item, onSelect }: { item: any, onSelect: (path: string) => void }) {
+function HistoryItemComponent({ item, onSelect, onDelete }: { item: any, onSelect: (path: string) => void, onDelete: (id: string) => void }) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
@@ -515,11 +516,45 @@ function HistoryItemComponent({ item, onSelect }: { item: any, onSelect: (path: 
       .catch(console.error);
   }, [item.path]);
 
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!src) return;
+    try {
+      const response = await fetch(src);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      
+      const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
+      const { Image } = await import('@tauri-apps/api/image');
+      
+      const img = new globalThis.Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const tauriImg = await Image.new(new Uint8Array(imageData.data), canvas.width, canvas.height);
+          await writeImage(tauriImg);
+        }
+      };
+      img.src = src;
+    } catch (err) {
+      console.error("Copy failed", err);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(item.id);
+  };
+
   return (
     <div 
-      className="aspect-video bg-black/50 rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-blue-500 transition-colors relative group"
+      className="aspect-video bg-black/50 rounded-lg ring-1 ring-white/10 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-shadow relative group"
       onClick={() => onSelect(item.path)}
-      title={item.timestamp}
     >
       {src ? (
         <img src={src} className="w-full h-full object-cover" alt="History item" />
@@ -530,6 +565,14 @@ function HistoryItemComponent({ item, onSelect }: { item: any, onSelect: (path: 
       )}
       <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-white/70 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
         <span>{item.timestamp}</span>
+        <div className="flex gap-2">
+          <button onClick={handleCopy} className="hover:text-blue-400 transition-colors" title="Copy to clipboard">
+            <Copy size={12} />
+          </button>
+          <button onClick={handleDelete} className="hover:text-red-400 transition-colors" title="Delete">
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -562,10 +605,23 @@ function HistoryWindow() {
         await emit('load_history', { dataUrl });
         
         const mainWindow = await WebviewWindow.getByLabel('main');
-        if (mainWindow) await mainWindow.show();
-        await getCurrentWindow().close();
+        if (mainWindow) {
+          await mainWindow.show();
+          await mainWindow.setFocus();
+          await mainWindow.unminimize();
+        }
       };
       reader.readAsDataURL(blob);
+    } catch (e) {
+      console.error(e);
+      setErrorMsg(String(e));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await invoke("delete_history", { id });
+      setHistory(prev => prev.filter(item => item.id !== id));
     } catch (e) {
       console.error(e);
       setErrorMsg(String(e));
@@ -590,7 +646,7 @@ function HistoryWindow() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 animate-slide-up">
             {history.map((item, index) => (
               <div key={item.id} style={{ animationDelay: `${index * 50}ms` }} className="animate-fade-in">
-                <HistoryItemComponent item={item} onSelect={handleSelect} />
+                <HistoryItemComponent item={item} onSelect={handleSelect} onDelete={handleDelete} />
               </div>
             ))}
           </div>

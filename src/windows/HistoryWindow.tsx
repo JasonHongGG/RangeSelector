@@ -49,26 +49,45 @@ function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem,
 
   return (
     <div 
-      className="aspect-video bg-gray-100 dark:bg-black/50 rounded-lg ring-1 ring-black/10 dark:ring-white/10 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-shadow relative group"
+      className="aspect-video bg-gray-100 dark:bg-[#1a1c23] rounded-xl overflow-hidden cursor-pointer relative group transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)] shadow-md border border-black/5 dark:border-white/5"
       onClick={() => onSelect(item.path)}
     >
       {src ? (
-        <img src={src} className="w-full h-full object-cover" alt="History item" />
+        <img 
+          src={src} 
+          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" 
+          alt="History item" 
+        />
       ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <span className="text-gray-400 dark:text-white/30 text-xs animate-pulse">Loading...</span>
+        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-black/40">
+          <span className="text-gray-400 dark:text-white/30 text-xs animate-pulse font-mono">Loading...</span>
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-white/80 dark:bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-gray-700 dark:text-white/70 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <span>{item.timestamp}</span>
-        <div className="flex gap-2">
-          <button onClick={handleCopy} className="hover:text-blue-400 transition-colors" title="Copy to clipboard">
-            <Copy size={12} />
-          </button>
-          <button onClick={handleDelete} className="hover:text-red-400 transition-colors" title="Delete">
-            <Trash2 size={12} />
-          </button>
-        </div>
+      
+      {/* Dark Gradient Overlay for Timestamp */}
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none opacity-80" />
+      
+      {/* Timestamp */}
+      <span className="absolute bottom-3 left-3 text-white/90 text-[10px] font-mono tracking-wider drop-shadow-md z-10 pointer-events-none">
+        {item.timestamp}
+      </span>
+
+      {/* Floating Action Buttons */}
+      <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-20">
+        <button 
+          onClick={handleCopy} 
+          className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-blue-500/80 hover:border-blue-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
+          title="Copy to clipboard"
+        >
+          <Copy size={14} />
+        </button>
+        <button 
+          onClick={handleDelete} 
+          className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-red-500/80 hover:border-red-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   );

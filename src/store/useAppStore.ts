@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
 interface AppState {
+  theme: 'light' | 'dark';
+  setTheme: (val: 'light' | 'dark') => void;
   isEditing: boolean;
   setIsEditing: (val: boolean) => void;
   imageSrc: string | null;
@@ -12,6 +14,11 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  theme: (localStorage.getItem('theme') as 'light' | 'dark') || 'dark',
+  setTheme: (val) => {
+    localStorage.setItem('theme', val);
+    set({ theme: val });
+  },
   isEditing: false,
   setIsEditing: (val) => set({ isEditing: val }),
   imageSrc: null,

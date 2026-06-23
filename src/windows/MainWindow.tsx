@@ -93,7 +93,7 @@ export function MainWindow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0f1115]/95 backdrop-blur-2xl border border-white/5 rounded-xl overflow-hidden shadow-2xl relative transition-colors selection:bg-blue-500/30">
+    <div className="flex flex-col h-screen bg-white/95 dark:bg-[#0f1115]/95 backdrop-blur-2xl border border-black/10 dark:border-white/5 rounded-xl overflow-hidden shadow-2xl relative transition-colors selection:bg-blue-500/30">
       <TitleBar>
         <IconButton onClick={handleCapture} title="New Capture">
           <ScanLine size={16} />
@@ -103,7 +103,7 @@ export function MainWindow() {
         </IconButton>
 
         {isEditing && (
-          <div className="flex items-center animate-fade-in pl-1 ml-1 border-l border-white/10 gap-1">
+          <div className="flex items-center animate-fade-in pl-1 ml-1 border-l border-black/10 dark:border-white/10 gap-1">
             <ColorPalette />
 
             <IconButton onClick={handleUndo} disabled={history.length <= 1} title="Undo">
@@ -113,7 +113,7 @@ export function MainWindow() {
               <Redo2 size={16} />
             </IconButton>
 
-            <div className="w-px h-4 bg-white/10 mx-1" />
+            <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1" />
 
             <IconButton onClick={copyToClipboard} title="Copy to Clipboard" className="hover:bg-blue-500/20 text-blue-400 hover:text-blue-300">
               <Copy size={16} />
@@ -135,22 +135,22 @@ export function MainWindow() {
             onClick={handleCapture}
           >
             <div className="relative flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border border-white/5 scale-[1.2] group-hover:border-blue-400/20 transition-all duration-700" />
-              <div className="absolute inset-0 rounded-full border-2 border-dashed border-white/10 scale-150 animate-pulse-slow group-hover:border-blue-500/30 transition-all duration-700" />
+              <div className="absolute inset-0 rounded-full border border-black/5 dark:border-white/5 scale-[1.2] group-hover:border-blue-400/20 transition-all duration-700" />
+              <div className="absolute inset-0 rounded-full border-2 border-dashed border-black/10 dark:border-white/10 scale-150 animate-pulse-slow group-hover:border-blue-500/30 transition-all duration-700" />
               
-              <div className="relative w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-blue-500/10 group-hover:border-blue-500/40 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500 overflow-hidden z-10">
-                <ScanLine size={32} className="text-white/20 group-hover:text-blue-400 group-hover:-translate-y-1 transition-all duration-500" />
+              <div className="relative w-24 h-24 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center group-hover:bg-blue-500/10 group-hover:border-blue-500/40 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500 overflow-hidden z-10">
+                <ScanLine size={32} className="text-gray-400 dark:text-white/20 group-hover:text-blue-500 dark:group-hover:text-blue-400 group-hover:-translate-y-1 transition-all duration-500" />
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-t from-transparent via-blue-400/20 to-transparent -translate-y-full group-hover:animate-[slide-up_1.5s_ease-in-out_infinite]" />
               </div>
             </div>
             
             <div className="mt-12 flex flex-col items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-500">
-              <span className="text-[11px] font-bold tracking-[0.2em] text-white/50 uppercase">Ready to Capture</span>
+              <span className="text-[11px] font-bold tracking-[0.2em] text-gray-500 dark:text-white/50 uppercase">Ready to Capture</span>
             </div>
           </div>
         ) : (
           <div className="flex flex-col w-full h-full min-h-0 animate-scale-in p-4">
-            <div className="flex-1 rounded-lg border border-white/5 bg-black/40 shadow-inner flex items-center justify-center overflow-hidden relative cursor-crosshair group">
+            <div className="flex-1 rounded-lg border border-black/5 dark:border-white/5 bg-gray-100 dark:bg-black/40 shadow-inner flex items-center justify-center overflow-hidden relative cursor-crosshair group">
               <canvas
                 ref={canvasRef}
                 className="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform duration-300"
@@ -160,9 +160,9 @@ export function MainWindow() {
                 onMouseLeave={stopDrawing}
               />
               {!isDrawing && (
-                <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <MousePointer2 size={12} className="text-white/50" />
-                  <span className="text-[10px] text-white/70 tracking-widest uppercase font-bold">Draw to annotate</span>
+                <div className="absolute bottom-4 right-4 bg-white/80 dark:bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-black/10 dark:border-white/10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <MousePointer2 size={12} className="text-gray-500 dark:text-white/50" />
+                  <span className="text-[10px] text-gray-700 dark:text-white/70 tracking-widest uppercase font-bold">Draw to annotate</span>
                 </div>
               )}
             </div>

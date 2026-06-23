@@ -1,6 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, X } from 'lucide-react';
+import { Minus, X, Sun, Moon } from 'lucide-react';
 import React from 'react';
+import { useAppStore } from '../store/useAppStore';
 
 interface TitleBarProps {
   title?: string;
@@ -10,6 +11,7 @@ interface TitleBarProps {
 
 export default function TitleBar({ title = 'RangeSelector', onClose, children }: TitleBarProps) {
   const appWindow = getCurrentWindow();
+  const { theme, setTheme } = useAppStore();
 
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -28,14 +30,14 @@ export default function TitleBar({ title = 'RangeSelector', onClose, children }:
   return (
     <div
       data-tauri-drag-region
-      className="h-10 flex justify-between items-center bg-gray-900 border-b border-white/10 px-2 select-none"
+      className="h-10 flex justify-between items-center bg-gray-100 dark:bg-gray-900 border-b border-black/10 dark:border-white/10 px-2 select-none"
     >
       {/* Title Area */}
       <div 
         data-tauri-drag-region 
         className="flex items-center pl-2 pointer-events-none"
       >
-        <span className="text-[13px] font-medium text-white/70 tracking-wider">
+        <span className="text-[13px] font-medium text-gray-700 dark:text-white/70 tracking-wider">
           {title}
         </span>
       </div>
@@ -43,19 +45,28 @@ export default function TitleBar({ title = 'RangeSelector', onClose, children }:
       {/* Custom Actions & Window Controls */}
       <div className="flex items-center gap-1">
         {children && (
-          <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-2">
+          <div className="flex items-center gap-1 mr-2 border-r border-black/10 dark:border-white/10 pr-2">
             {children}
           </div>
         )}
+        {appWindow.label === 'main' && (
+          <button
+            className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            title="Toggle Theme"
+          >
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        )}
         <button
-          className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
           onClick={handleMinimize}
           title="Minimize"
         >
           <Minus size={16} />
         </button>
         <button
-          className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-red-500 text-white/50 hover:text-white transition-colors"
+          className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-red-500 text-gray-500 dark:text-white/50 hover:text-white transition-colors"
           onClick={handleClose}
           title="Close"
         >

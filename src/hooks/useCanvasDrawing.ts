@@ -74,8 +74,28 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
     if (!ctx || !canvasRef.current) return;
     setIsDrawing(true);
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    const canvasWidth = canvasRef.current.width;
+    const canvasHeight = canvasRef.current.height;
+    
+    // Calculate rendered size and offsets due to object-fit: contain
+    const canvasRatio = canvasWidth / canvasHeight;
+    const rectRatio = rect.width / rect.height;
+    
+    let renderedWidth = rect.width;
+    let renderedHeight = rect.height;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (canvasRatio > rectRatio) {
+      renderedHeight = rect.width / canvasRatio;
+      offsetY = (rect.height - renderedHeight) / 2;
+    } else {
+      renderedWidth = rect.height * canvasRatio;
+      offsetX = (rect.width - renderedWidth) / 2;
+    }
+
+    const x = ((e.clientX - rect.left - offsetX) / renderedWidth) * canvasWidth;
+    const y = ((e.clientY - rect.top - offsetY) / renderedHeight) * canvasHeight;
     
     pointsRef.current = [{x, y}];
     
@@ -95,8 +115,27 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
   const draw = (e: React.MouseEvent) => {
     if (!isDrawing || !ctx || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    const canvasWidth = canvasRef.current.width;
+    const canvasHeight = canvasRef.current.height;
+    
+    const canvasRatio = canvasWidth / canvasHeight;
+    const rectRatio = rect.width / rect.height;
+    
+    let renderedWidth = rect.width;
+    let renderedHeight = rect.height;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (canvasRatio > rectRatio) {
+      renderedHeight = rect.width / canvasRatio;
+      offsetY = (rect.height - renderedHeight) / 2;
+    } else {
+      renderedWidth = rect.height * canvasRatio;
+      offsetX = (rect.width - renderedWidth) / 2;
+    }
+
+    const x = ((e.clientX - rect.left - offsetX) / renderedWidth) * canvasWidth;
+    const y = ((e.clientY - rect.top - offsetY) / renderedHeight) * canvasHeight;
     
     pointsRef.current.push({x, y});
     const points = pointsRef.current;

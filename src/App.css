@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:where(.dark, .dark *));
 @theme {
   --color-primary: #3b82f6;
   --animate-fade-in: fade-in 0.3s ease-out;
@@ -26,7 +26,7 @@
 }
 
 body {
-  @apply bg-transparent m-0 p-0 overflow-hidden text-white font-sans;
+  @apply bg-transparent m-0 p-0 overflow-hidden text-gray-900 dark:text-white font-sans;
 }
 
 /* 隱藏捲軸 */

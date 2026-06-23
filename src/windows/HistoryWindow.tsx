@@ -49,17 +49,17 @@ function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem,
 
   return (
     <div 
-      className="aspect-video bg-black/50 rounded-lg ring-1 ring-white/10 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-shadow relative group"
+      className="aspect-video bg-gray-100 dark:bg-black/50 rounded-lg ring-1 ring-black/10 dark:ring-white/10 overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-shadow relative group"
       onClick={() => onSelect(item.path)}
     >
       {src ? (
         <img src={src} className="w-full h-full object-cover" alt="History item" />
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          <span className="text-white/30 text-xs animate-pulse">Loading...</span>
+          <span className="text-gray-400 dark:text-white/30 text-xs animate-pulse">Loading...</span>
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-white/70 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute inset-x-0 bottom-0 bg-white/80 dark:bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-gray-700 dark:text-white/70 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
         <span>{item.timestamp}</span>
         <div className="flex gap-2">
           <button onClick={handleCopy} className="hover:text-blue-400 transition-colors" title="Copy to clipboard">
@@ -112,7 +112,7 @@ export function HistoryWindow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0f1115]/95 backdrop-blur-2xl border border-white/5 rounded-xl overflow-hidden shadow-2xl transition-colors selection:bg-blue-500/30">
+    <div className="flex flex-col h-screen bg-white/95 dark:bg-[#0f1115]/95 backdrop-blur-2xl border border-black/10 dark:border-white/5 rounded-xl overflow-hidden shadow-2xl transition-colors selection:bg-blue-500/30">
       <TitleBar title="History Library" />
       <div className="flex-1 p-6 overflow-y-auto">
         {errorMsg && (
@@ -121,7 +121,7 @@ export function HistoryWindow() {
           </div>
         )}
         {history.length === 0 && !errorMsg ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-white/30 animate-fade-in">
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-400 dark:text-white/30 animate-fade-in">
             <History size={48} className="opacity-20" />
             <span className="text-xs uppercase tracking-[0.2em] font-bold">No captures yet</span>
           </div>

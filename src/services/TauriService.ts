@@ -156,7 +156,16 @@ export class TauriService {
   }
 
   static async exportCanvas(canvas: HTMLCanvasElement): Promise<void> {
-    const path = await save({ filters: [{ name: 'Image', extensions: ['png'] }] });
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const defaultFilename = `screenshot_${timestamp}.png`;
+
+    const path = await save({ 
+      filters: [{ name: 'Image', extensions: ['png'] }],
+      defaultPath: defaultFilename
+    });
+    
     if (path) {
       const dataUrl = canvas.toDataURL('image/png');
       const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));

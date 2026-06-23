@@ -5,6 +5,8 @@ interface AppState {
   setTheme: (val: 'light' | 'dark') => void;
   isEditing: boolean;
   setIsEditing: (val: boolean) => void;
+  toolMode: 'draw' | 'erase';
+  setToolMode: (val: 'draw' | 'erase') => void;
   imageSrc: string | null;
   setImageSrc: (val: string | null) => void;
   color: string;
@@ -21,6 +23,8 @@ export const useAppStore = create<AppState>((set) => ({
   },
   isEditing: false,
   setIsEditing: (val) => set({ isEditing: val }),
+  toolMode: 'draw',
+  setToolMode: (val) => set({ toolMode: val }),
   imageSrc: null,
   setImageSrc: (val) => set({ imageSrc: val }),
   color: '#ef4444',

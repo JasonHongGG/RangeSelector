@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>) {
-  const { color, brushSize, imageSrc } = useAppStore();
+  const { color, brushSize, imageSrc, toolMode } = useAppStore();
   const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [redoStack, setRedoStack] = useState<ImageData[]>([]);
@@ -53,6 +53,16 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
       ctx.putImageData(next, 0, 0);
       setHistory(prev => [...prev, next]);
       setRedoStack(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleClear = () => {
+    if (history.length > 0 && ctx && canvasRef.current) {
+      const baseImage = history[0];
+      ctx.putImageData(baseImage, 0, 0);
+      const newData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setHistory(prev => [...prev, newData]);
+      setRedoStack([]);
     }
   };
 
@@ -107,6 +117,7 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.imageSmoothingEnabled = true;
+    ctx.globalCompositeOperation = toolMode === 'erase' ? 'destination-out' : 'source-over';
     
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -190,6 +201,7 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
     redoStack,
     handleUndo,
     handleRedo,
+    handleClear,
     startDrawing,
     draw,
     stopDrawing

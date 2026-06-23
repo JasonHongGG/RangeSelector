@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import TitleBar from "../components/TitleBar";
-import { ScanLine, History, Copy, Save, Undo2, Redo2, XCircle, MousePointer2 } from "lucide-react";
+import { ScanLine, History } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { useCanvasDrawing } from "../hooks/useCanvasDrawing";
 import { TauriService } from "../services/TauriService";
 import { IconButton } from "../components/common/IconButton";
-import { ColorPalette } from "../components/toolbar/ColorPalette";
+import { FloatingToolbar } from "../components/toolbar/FloatingToolbar";
 import { getCroppedCanvas } from "../utils/canvasUtils";
 
 export function MainWindow() {
@@ -13,14 +13,14 @@ export function MainWindow() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const { 
-    isDrawing, 
     history, 
     redoStack, 
     handleUndo, 
     handleRedo, 
     startDrawing, 
     draw, 
-    stopDrawing 
+    stopDrawing,
+    handleClear
   } = useCanvasDrawing(canvasRef);
 
   useEffect(() => {
@@ -101,31 +101,6 @@ export function MainWindow() {
         <IconButton onClick={() => TauriService.openHistoryWindow()} title="History">
           <History size={16} />
         </IconButton>
-
-        {isEditing && (
-          <div className="flex items-center animate-fade-in pl-1 ml-1 border-l border-black/10 dark:border-white/10 gap-1">
-            <ColorPalette />
-
-            <IconButton onClick={handleUndo} disabled={history.length <= 1} title="Undo">
-              <Undo2 size={16} />
-            </IconButton>
-            <IconButton onClick={handleRedo} disabled={redoStack.length === 0} title="Redo">
-              <Redo2 size={16} />
-            </IconButton>
-
-            <div className="w-px h-4 bg-black/10 dark:bg-white/10 mx-1" />
-
-            <IconButton onClick={copyToClipboard} title="Copy to Clipboard" className="hover:bg-blue-500/20 text-blue-400 hover:text-blue-300">
-              <Copy size={16} />
-            </IconButton>
-            <IconButton onClick={exportImage} title="Export Image" className="hover:bg-green-500/20 text-green-400 hover:text-green-300">
-              <Save size={16} />
-            </IconButton>
-            <IconButton onClick={() => setIsEditing(false)} title="Discard" className="hover:bg-red-500/20 text-red-400 hover:text-red-300 ml-1">
-              <XCircle size={16} />
-            </IconButton>
-          </div>
-        )}
       </TitleBar>
 
       <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
@@ -159,12 +134,16 @@ export function MainWindow() {
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
               />
-              {!isDrawing && (
-                <div className="absolute bottom-4 right-4 bg-white/80 dark:bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-black/10 dark:border-white/10 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <MousePointer2 size={12} className="text-gray-500 dark:text-white/50" />
-                  <span className="text-[10px] text-gray-700 dark:text-white/70 tracking-widest uppercase font-bold">Draw to annotate</span>
-                </div>
-              )}
+              <FloatingToolbar 
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onClear={handleClear}
+                onCopy={copyToClipboard}
+                onExport={exportImage}
+                onDiscard={() => setIsEditing(false)}
+                canUndo={history.length > 1}
+                canRedo={redoStack.length > 0}
+              />
             </div>
           </div>
         )}

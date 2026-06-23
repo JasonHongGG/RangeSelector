@@ -127,6 +127,9 @@ function MainWindow() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [history, redoStack, ctx]);
 
+  // Add a ref to store drawing points for curve interpolation
+  const pointsRef = useRef<{x: number, y: number}[]>([]);
+
   const startDrawing = (e: React.MouseEvent) => {
     if (!ctx || !canvasRef.current) return;
     setShowPalette(false);
@@ -134,17 +137,22 @@ function MainWindow() {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
     const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    
+    // Store the first point
+    pointsRef.current = [{x, y}];
+    
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.strokeStyle = color;
-    // Scale brush size by DPR so it renders smoothly on high-res canvases
     const dpr = window.devicePixelRatio || 1;
     ctx.lineWidth = brushSize * dpr;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
-    // Optional: enable image smoothing if it was somehow disabled
     ctx.imageSmoothingEnabled = true;
+    
+    // Draw a single dot if they just click
+    ctx.lineTo(x, y);
+    ctx.stroke();
   };
 
   const draw = (e: React.MouseEvent) => {
@@ -153,18 +161,55 @@ function MainWindow() {
     const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
     const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
     
-    ctx.lineTo(x, y);
+    pointsRef.current.push({x, y});
+    const points = pointsRef.current;
+    
+    // We need at least 3 points to draw a curve
+    if (points.length < 3) {
+      const p0 = points[0];
+      const p1 = points[1];
+      if (p0 && p1) {
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    // Clear and redraw the last few segments to ensure smooth curves
+    // The easiest robust way to do this live is to use quadratic curves
+    // through the midpoints between the recorded mouse positions
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    
+    for (let i = 1; i < points.length - 2; i++) {
+      const xc = (points[i].x + points[i + 1].x) / 2;
+      const yc = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+    }
+    
+    // Curve through the last two points
+    const lastPoint = points[points.length - 1];
+    const secondLastPoint = points[points.length - 2];
+    ctx.quadraticCurveTo(
+      secondLastPoint.x, 
+      secondLastPoint.y, 
+      lastPoint.x, 
+      lastPoint.y
+    );
+    
     ctx.stroke();
     
-    // Prevent overdrawing the same path which destroys anti-aliasing (causes jaggedness)
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+    // Keep only the last 3 points to keep rendering fast but connected
+    pointsRef.current = points.slice(-3);
   };
 
   const stopDrawing = () => {
     if (!isDrawing || !ctx || !canvasRef.current) return;
     setIsDrawing(false);
     ctx.closePath();
+    pointsRef.current = []; // clear points
     const newData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
     setHistory(prev => [...prev, newData]);
     setRedoStack([]);

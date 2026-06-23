@@ -57,6 +57,14 @@ export function MainWindow() {
     };
   }, [setImageSrc, setIsEditing]);
 
+  useEffect(() => {
+    if (isEditing) {
+      TauriService.setExpandedMode();
+    } else {
+      TauriService.setCompactMode();
+    }
+  }, [isEditing]);
+
   const handleCapture = async () => {
     await TauriService.hideCurrentWindow();
     setTimeout(async () => {

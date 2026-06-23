@@ -23,6 +23,7 @@
     "fs:default",
     "fs:allow-write-file",
     "clipboard-manager:default",
-    "clipboard-manager:allow-write-image"
+    "clipboard-manager:allow-write-image",
+    "core:window:allow-set-size"
   ]
 }

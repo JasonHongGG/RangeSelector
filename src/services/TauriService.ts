@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen, emit } from "@tauri-apps/api/event";
 import { writeImage } from "@tauri-apps/plugin-clipboard-manager";
@@ -44,6 +44,24 @@ export class TauriService {
   static async closeCurrentWindow(): Promise<void> {
     const appWindow = getCurrentWindow();
     await appWindow.close();
+  }
+
+  static async setCompactMode(): Promise<void> {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.setSize(new LogicalSize(500, 350));
+    } catch (e) {
+      console.error("Failed to set compact mode", e);
+    }
+  }
+
+  static async setExpandedMode(): Promise<void> {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.setSize(new LogicalSize(800, 600));
+    } catch (e) {
+      console.error("Failed to set expanded mode", e);
+    }
   }
 
   static async showMainWindow(): Promise<void> {

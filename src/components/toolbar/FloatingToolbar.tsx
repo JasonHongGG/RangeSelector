@@ -75,7 +75,7 @@ export function FloatingToolbar({
                 min="1" max="30" 
                 value={brushSize} 
                 onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full accent-blue-500 h-1 bg-black/10 dark:bg-white/10 rounded-lg appearance-none cursor-pointer"
+                className="w-full custom-slider"
               />
             </div>
           </div>
@@ -93,7 +93,7 @@ export function FloatingToolbar({
                 min="1" max="50" 
                 value={brushSize} 
                 onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full accent-blue-500 h-1 bg-black/10 dark:bg-white/10 rounded-lg appearance-none cursor-pointer"
+                className="w-full custom-slider"
               />
             </div>
             <div className="w-full h-px bg-black/10 dark:bg-white/10" />

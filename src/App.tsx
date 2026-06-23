@@ -5,6 +5,53 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import { ScanLine, History, Copy, Save, Undo2, Redo2, XCircle, MousePointer2, Trash2 } from "lucide-react";
 
+const getCroppedCanvas = (sourceCanvas: HTMLCanvasElement): HTMLCanvasElement => {
+  const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return sourceCanvas;
+  
+  const width = sourceCanvas.width;
+  const height = sourceCanvas.height;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  let minX = width, minY = height, maxX = 0, maxY = 0;
+  let hasContent = false;
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        hasContent = true;
+      }
+    }
+  }
+  
+  if (!hasContent) return sourceCanvas;
+  
+  const dpr = window.devicePixelRatio || 1;
+  const margin = Math.round(10 * dpr);
+  
+  minX = Math.max(0, minX - margin);
+  minY = Math.max(0, minY - margin);
+  maxX = Math.min(width - 1, maxX + margin);
+  maxY = Math.min(height - 1, maxY + margin);
+  
+  const cropWidth = maxX - minX + 1;
+  const cropHeight = maxY - minY + 1;
+  
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = cropWidth;
+  cropCanvas.height = cropHeight;
+  const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+  if (cropCtx) {
+    cropCtx.putImageData(ctx.getImageData(minX, minY, cropWidth, cropHeight), 0, 0);
+  }
+  return cropCanvas;
+};
+
 function MainWindow() {
   const [isEditing, setIsEditing] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -26,16 +73,19 @@ function MainWindow() {
         setCtx(context);
         const img = new globalThis.Image();
         img.onload = () => {
-          // Set physical dimensions
-          canvas.width = img.width;
-          canvas.height = img.height;
-          
-          // Set CSS display size to logical dimensions (1:1 with screen)
           const dpr = window.devicePixelRatio || 1;
-          canvas.style.width = `${img.width / dpr}px`;
-          canvas.style.height = `${img.height / dpr}px`;
+          const PADDING = 150; // Logical padding for drawing outside the image
+          const physPadding = Math.round(PADDING * dpr);
+
+          // Set physical dimensions with padding
+          canvas.width = img.width + physPadding * 2;
+          canvas.height = img.height + physPadding * 2;
           
-          context.drawImage(img, 0, 0);
+          // Set CSS display size to logical dimensions
+          canvas.style.width = `${(img.width / dpr) + PADDING * 2}px`;
+          canvas.style.height = `${(img.height / dpr) + PADDING * 2}px`;
+          
+          context.drawImage(img, physPadding, physPadding);
           setHistory([context.getImageData(0, 0, canvas.width, canvas.height)]);
           setRedoStack([]);
         };
@@ -87,9 +137,14 @@ function MainWindow() {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.strokeStyle = color;
-    ctx.lineWidth = brushSize;
+    // Scale brush size by DPR so it renders smoothly on high-res canvases
+    const dpr = window.devicePixelRatio || 1;
+    ctx.lineWidth = brushSize * dpr;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    
+    // Optional: enable image smoothing if it was somehow disabled
+    ctx.imageSmoothingEnabled = true;
   };
 
   const draw = (e: React.MouseEvent) => {
@@ -97,8 +152,13 @@ function MainWindow() {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
     const y = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+    
     ctx.lineTo(x, y);
     ctx.stroke();
+    
+    // Prevent overdrawing the same path which destroys anti-aliasing (causes jaggedness)
+    ctx.beginPath();
+    ctx.moveTo(x, y);
   };
 
   const stopDrawing = () => {
@@ -276,7 +336,7 @@ function MainWindow() {
               onClick={async () => {
                 if (canvasRef.current) {
                   try {
-                    const canvas = canvasRef.current;
+                    const canvas = getCroppedCanvas(canvasRef.current);
                     const ctx = canvas.getContext('2d', { willReadFrequently: true });
                     if (ctx) {
                       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -303,7 +363,8 @@ function MainWindow() {
                     const { writeFile } = await import('@tauri-apps/plugin-fs');
                     const path = await save({ filters: [{ name: 'Image', extensions: ['png'] }] });
                     if (path) {
-                      const dataUrl = canvasRef.current.toDataURL('image/png');
+                      const canvas = getCroppedCanvas(canvasRef.current);
+                      const dataUrl = canvas.toDataURL('image/png');
                       const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
                       await writeFile(path, bytes);
                     }

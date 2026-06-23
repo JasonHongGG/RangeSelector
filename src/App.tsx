@@ -537,9 +537,18 @@ function HistoryItemComponent({ item, onSelect }: { item: any, onSelect: (path: 
 
 function HistoryWindow() {
   const [history, setHistory] = useState<any[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<any[]>("get_history_list").then(setHistory).catch(console.error);
+    invoke<any[]>("get_history_list")
+      .then(res => {
+        console.log("get_history_list result:", res);
+        setHistory(res);
+      })
+      .catch(e => {
+        console.error("get_history_list error:", e);
+        setErrorMsg(String(e));
+      });
   }, []);
 
   const handleSelect = async (path: string) => {
@@ -559,6 +568,7 @@ function HistoryWindow() {
       reader.readAsDataURL(blob);
     } catch (e) {
       console.error(e);
+      setErrorMsg(String(e));
     }
   };
 
@@ -566,7 +576,12 @@ function HistoryWindow() {
     <div className="flex flex-col h-screen bg-[#0f1115]/95 backdrop-blur-2xl border border-white/5 rounded-xl overflow-hidden shadow-2xl transition-colors selection:bg-blue-500/30">
       <TitleBar title="History Library" />
       <div className="flex-1 p-6 overflow-y-auto">
-        {history.length === 0 ? (
+        {errorMsg && (
+          <div className="bg-red-500/20 text-red-400 p-4 rounded-lg mb-4 text-xs font-mono break-all border border-red-500/30">
+            Error: {errorMsg}
+          </div>
+        )}
+        {history.length === 0 && !errorMsg ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-white/30 animate-fade-in">
             <History size={48} className="opacity-20" />
             <span className="text-xs uppercase tracking-[0.2em] font-bold">No captures yet</span>

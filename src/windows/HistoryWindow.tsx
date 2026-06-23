@@ -126,7 +126,7 @@ export function HistoryWindow() {
             <span className="text-xs uppercase tracking-[0.2em] font-bold">No captures yet</span>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 animate-slide-up">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-6 animate-slide-up">
             {history.map((item, index) => (
               <div key={item.id} style={{ animationDelay: `${index * 50}ms` }} className="animate-fade-in">
                 <HistoryItemComponent item={item} onSelect={handleSelect} onDelete={handleDelete} />

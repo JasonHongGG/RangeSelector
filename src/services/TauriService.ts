@@ -115,6 +115,8 @@ export class TauriService {
       title: 'History',
       width: 700,
       height: 550,
+      minWidth: 400,
+      minHeight: 300,
       transparent: true,
       decorations: false,
       center: true

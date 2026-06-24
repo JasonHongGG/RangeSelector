@@ -14,12 +14,12 @@ export class TauriService {
     await invoke("perform_capture_flow");
   }
 
-  static async getLastCapture(): Promise<number[]> {
-    return await invoke<number[]>("get_last_capture");
+  static async getMagnifierRegion(x: number, y: number, size: number): Promise<string> {
+    return await invoke<string>("get_magnifier_region", { x, y, size });
   }
 
-  static async getLastCaptureBase64(): Promise<string> {
-    return await invoke<string>("get_last_capture_base64");
+  static async cropFromRaw(x: number, y: number, width: number, height: number): Promise<string> {
+    return await invoke<string>("crop_from_raw", { x, y, width, height });
   }
 
   // History
@@ -131,8 +131,8 @@ export class TauriService {
     return unlisten;
   }
 
-  static async onRefreshCapture(callback: () => void): Promise<() => void> {
-    const unlisten = await listen('refresh_capture', () => {
+  static async onCaptureReady(callback: () => void): Promise<() => void> {
+    const unlisten = await listen('capture_ready', () => {
       callback();
     });
     return unlisten;

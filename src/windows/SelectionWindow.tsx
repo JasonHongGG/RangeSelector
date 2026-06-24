@@ -1,34 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TauriService } from "../services/TauriService";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function SelectionWindow() {
-  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [isCaptureReady, setIsCaptureReady] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [currentPos, setCurrentPos] = useState({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [showMagnifier, setShowMagnifier] = useState(false);
   const [zoom, setZoom] = useState(3);
+  const [magnifierImage, setMagnifierImage] = useState<string | null>(null);
+  
+  const isFetchingMagRef = useRef(false);
 
   useEffect(() => {
-    const loadCapture = () => {
-      TauriService.getLastCaptureBase64().then((dataUrl) => {
-        setBgImage(dataUrl);
-      }).catch(console.error);
-    };
-
-    loadCapture();
-
-    let unlistenRefresh: (() => void) | undefined;
-    TauriService.onRefreshCapture(() => {
-      loadCapture();
+    let unlistenCapture: (() => void) | undefined;
+    
+    // Set capture ready when rust background thread finishes naked capture
+    TauriService.onCaptureReady(() => {
+      setIsCaptureReady(true);
     }).then(unlisten => {
-      unlistenRefresh = unlisten;
+      unlistenCapture = unlisten;
     });
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        setIsCaptureReady(false);
+        setMagnifierImage(null);
         await TauriService.showMainWindow();
         await TauriService.hideCurrentWindow();
       }
@@ -36,7 +34,7 @@ export function SelectionWindow() {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      if (unlistenRefresh) unlistenRefresh();
+      if (unlistenCapture) unlistenCapture();
     };
   }, []);
 
@@ -47,10 +45,29 @@ export function SelectionWindow() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
+    const x = e.clientX;
+    const y = e.clientY;
+    setMousePos({ x, y });
     setShowMagnifier(true);
     if (isSelecting) {
-      setCurrentPos({ x: e.clientX, y: e.clientY });
+      setCurrentPos({ x, y });
+    }
+
+    // On-Demand Magnifier Region Fetch
+    if (isCaptureReady && !isFetchingMagRef.current) {
+      isFetchingMagRef.current = true;
+      const dpr = window.devicePixelRatio || 1;
+      const size = Math.ceil((MAGNIFIER_WIDTH / zoom) * dpr);
+      const physX = Math.round(x * dpr);
+      const physY = Math.round(y * dpr);
+      
+      TauriService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
+        setMagnifierImage(dataUrl);
+        isFetchingMagRef.current = false;
+      }).catch((err) => {
+        console.error(err);
+        isFetchingMagRef.current = false;
+      });
     }
   };
 
@@ -60,9 +77,23 @@ export function SelectionWindow() {
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
-      setZoom((prev) => Math.min(prev + 1, 50));
+      setZoom((prev) => Math.min(prev + 1, 20));
     } else {
-      setZoom((prev) => Math.max(prev - 1, 3));
+      setZoom((prev) => Math.max(prev - 1, 2));
+    }
+    
+    // Force mag refresh on zoom
+    if (isCaptureReady && !isFetchingMagRef.current) {
+       isFetchingMagRef.current = true;
+       const dpr = window.devicePixelRatio || 1;
+       const size = Math.ceil((MAGNIFIER_WIDTH / zoom) * dpr);
+       const physX = Math.round(mousePos.x * dpr);
+       const physY = Math.round(mousePos.y * dpr);
+       
+       TauriService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
+          setMagnifierImage(dataUrl);
+          isFetchingMagRef.current = false;
+       });
     }
   };
 
@@ -77,28 +108,27 @@ export function SelectionWindow() {
 
     if (width < 10 || height < 10) return;
 
-    if (bgImage) {
-      const img = new globalThis.Image();
-      img.onload = async () => {
+    if (isCaptureReady) {
+      try {
         const dpr = window.devicePixelRatio || 1;
-        const canvas = document.createElement('canvas');
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-          ctx.drawImage(
-            img,
-            x * dpr, y * dpr, width * dpr, height * dpr,
-            0, 0, canvas.width, canvas.height
-          );
-          const dataUrl = canvas.toDataURL('image/png');
-          await TauriService.emitCropResult(dataUrl);
-          await TauriService.showMainWindow();
-          await TauriService.hideCurrentWindow();
-        }
-      };
-      img.src = bgImage;
+        // The mouse coordinates are logical pixels. We need physical pixels for Rust crop
+        const physX = Math.round(x * dpr);
+        const physY = Math.round(y * dpr);
+        const physW = Math.round(width * dpr);
+        const physH = Math.round(height * dpr);
+        
+        const dataUrl = await TauriService.cropFromRaw(physX, physY, physW, physH);
+        
+        await TauriService.emitCropResult(dataUrl);
+        
+        setIsCaptureReady(false);
+        setMagnifierImage(null);
+        
+        await TauriService.showMainWindow();
+        await TauriService.hideCurrentWindow();
+      } catch(err) {
+        console.error("Failed to crop from raw:", err);
+      }
     }
   };
 
@@ -128,31 +158,26 @@ export function SelectionWindow() {
   if (magX < 0) magX = 0;
   if (magY < 0) magY = 0;
 
-  // Background position calculations to center the pixel perfectly
-  const bgX = (MAGNIFIER_WIDTH / 2) - (zoom / 2) - (mousePos.x * zoom);
-  const bgY = ((MAGNIFIER_HEIGHT - 20) / 2) - (zoom / 2) - (mousePos.y * zoom); // 20px is the header height
-
   return (
     <div
-      className="w-screen h-screen cursor-crosshair select-none bg-black/10 animate-fade-in overflow-hidden"
+      className="w-screen h-screen cursor-crosshair select-none overflow-hidden"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       onWheel={handleWheel}
       style={{
-        backgroundImage: bgImage ? `url(${bgImage})` : 'none',
-        backgroundSize: '100% 100%'
+        backgroundColor: 'transparent' // Completely transparent, we see the real desktop
       }}
     >
-      <div className={`absolute inset-0 bg-black/50 pointer-events-none transition-opacity ${isSelecting ? 'opacity-0' : 'opacity-100'}`} />
+      <div className={`absolute inset-0 bg-black/30 pointer-events-none transition-opacity ${isSelecting ? 'opacity-0' : 'opacity-100'}`} />
 
       {isSelecting && (
         <div
           className="absolute border border-white/30"
           style={{
             ...selectStyle,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.3)',
           }}
         >
           <div className="absolute -top-[1px] -left-[1px] w-3 h-3 border-t-2 border-l-2 border-blue-400" />
@@ -167,7 +192,7 @@ export function SelectionWindow() {
       )}
 
       {/* HUD Viewfinder Magnifier */}
-      {showMagnifier && bgImage && (
+      {showMagnifier && isCaptureReady && magnifierImage && (
         <div
           className="absolute pointer-events-none z-50 bg-[#111] border border-[#444] shadow-[0_8px_32px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
           style={{
@@ -184,14 +209,14 @@ export function SelectionWindow() {
           </div>
 
           {/* Image Container */}
-          <div className="relative flex-1 bg-[#111]">
+          <div className="relative flex-1 bg-[#111] flex items-center justify-center">
             {/* Magnified Image */}
             <div
-              className="absolute inset-0 transition-all duration-150 ease-out"
+              className="absolute inset-0"
               style={{
-                backgroundImage: `url(${bgImage})`,
-                backgroundSize: `${window.innerWidth * zoom}px ${window.innerHeight * zoom}px`,
-                backgroundPosition: `${bgX}px ${bgY}px`,
+                backgroundImage: `url(${magnifierImage})`,
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
                 imageRendering: 'pixelated',
               }}
             />
@@ -199,7 +224,6 @@ export function SelectionWindow() {
             {/* Central Hollow Crosshair */}
             <div className="absolute inset-0 flex items-center justify-center">
                <div 
-                 className="transition-all duration-150 ease-out"
                  style={{ 
                    width: zoom, 
                    height: zoom, 

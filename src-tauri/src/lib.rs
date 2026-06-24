@@ -43,10 +43,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            commands::capture_cmd::capture_screen, 
             commands::capture_cmd::perform_capture_flow,
-            commands::capture_cmd::get_last_capture,
-            commands::capture_cmd::get_last_capture_base64,
+            commands::capture_cmd::get_magnifier_region,
+            commands::capture_cmd::crop_from_raw,
             commands::history_cmd::save_history,
             commands::history_cmd::get_history_list,
             commands::history_cmd::read_history_image,

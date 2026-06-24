@@ -2,12 +2,26 @@ use tauri::{State, AppHandle, Manager, Emitter};
 use base64::{Engine as _, engine::general_purpose};
 use crate::models::AppState;
 use crate::services::capture::capture_primary_monitor;
+use image::{RgbaImage, ImageEncoder, ColorType};
+use image::codecs::png::{PngEncoder, CompressionType, FilterType};
+use std::io::Cursor;
 
-#[tauri::command]
-pub fn capture_screen(state: State<AppState>) -> Result<(), String> {
-    let image_data = capture_primary_monitor()?;
-    *state.last_capture.lock().unwrap() = Some(image_data);
-    Ok(())
+fn encode_png_base64(img: &RgbaImage, fast: bool) -> Result<String, String> {
+    let mut buffer = Cursor::new(Vec::new());
+    let encoder = PngEncoder::new_with_quality(
+        &mut buffer,
+        if fast { CompressionType::Fast } else { CompressionType::Default },
+        FilterType::NoFilter,
+    );
+    encoder.write_image(
+        img.as_raw(),
+        img.width(),
+        img.height(),
+        ColorType::Rgba8.into(),
+    ).map_err(|e| e.to_string())?;
+    
+    let b64 = general_purpose::STANDARD.encode(buffer.into_inner());
+    Ok(format!("data:image/png;base64,{}", b64))
 }
 
 #[tauri::command]
@@ -28,9 +42,9 @@ pub fn perform_capture_flow(app: AppHandle, state: State<'_, AppState>) -> Resul
     let app_clone = app.clone();
     
     std::thread::spawn(move || {
-        if let Ok(image_data) = capture_primary_monitor() {
-            *last_capture.lock().unwrap() = Some(image_data);
-            let _ = app_clone.emit("refresh_capture", ());
+        if let Ok(raw_image) = capture_primary_monitor() {
+            *last_capture.lock().unwrap() = Some(raw_image);
+            let _ = app_clone.emit("capture_ready", ());
         }
     });
     
@@ -38,20 +52,43 @@ pub fn perform_capture_flow(app: AppHandle, state: State<'_, AppState>) -> Resul
 }
 
 #[tauri::command]
-pub fn get_last_capture(state: State<AppState>) -> Result<Vec<u8>, String> {
-    if let Some(data) = state.last_capture.lock().unwrap().as_ref() {
-        Ok(data.clone())
+pub fn get_magnifier_region(state: State<AppState>, x: u32, y: u32, size: u32) -> Result<String, String> {
+    if let Some(raw) = state.last_capture.lock().unwrap().as_ref() {
+        let mut img = RgbaImage::from_raw(raw.width, raw.height, raw.rgba.clone())
+            .ok_or("Failed to parse raw image")?;
+        
+        let half = size / 2;
+        let crop_x = if x > half { x - half } else { 0 };
+        let crop_y = if y > half { y - half } else { 0 };
+        
+        let crop_width = if crop_x + size > raw.width { raw.width - crop_x } else { size };
+        let crop_height = if crop_y + size > raw.height { raw.height - crop_y } else { size };
+
+        let cropped = image::imageops::crop(&mut img, crop_x, crop_y, crop_width, crop_height).to_image();
+        
+        // Fast encode for magnifier
+        encode_png_base64(&cropped, true)
     } else {
-        Err("No capture found".into())
+        Err("No capture ready".into())
     }
 }
 
 #[tauri::command]
-pub fn get_last_capture_base64(state: State<AppState>) -> Result<String, String> {
-    if let Some(data) = state.last_capture.lock().unwrap().as_ref() {
-        let b64 = general_purpose::STANDARD.encode(data);
-        Ok(format!("data:image/png;base64,{}", b64))
+pub fn crop_from_raw(state: State<AppState>, x: u32, y: u32, width: u32, height: u32) -> Result<String, String> {
+    if let Some(raw) = state.last_capture.lock().unwrap().as_ref() {
+        let mut img = RgbaImage::from_raw(raw.width, raw.height, raw.rgba.clone())
+            .ok_or("Failed to parse raw image")?;
+        
+        let crop_x = x.min(raw.width);
+        let crop_y = y.min(raw.height);
+        let crop_w = width.min(raw.width - crop_x);
+        let crop_h = height.min(raw.height - crop_y);
+
+        let cropped = image::imageops::crop(&mut img, crop_x, crop_y, crop_w, crop_h).to_image();
+        
+        // High quality encode for final result
+        encode_png_base64(&cropped, false)
     } else {
-        Err("No capture found".into())
+        Err("No capture ready".into())
     }
 }

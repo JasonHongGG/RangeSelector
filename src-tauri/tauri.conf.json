@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "RangeSelector",
         "width": 500,
         "height": 350,
@@ -19,6 +20,17 @@
         "minHeight": 300,
         "decorations": false,
         "transparent": true
+      },
+      {
+        "label": "selection-window",
+        "url": "/",
+        "title": "Selection",
+        "fullscreen": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {

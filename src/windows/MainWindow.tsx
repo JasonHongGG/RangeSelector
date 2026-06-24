@@ -66,16 +66,12 @@ export function MainWindow() {
   }, [isEditing]);
 
   const handleCapture = async () => {
-    await TauriService.hideCurrentWindow();
-    setTimeout(async () => {
-      try {
-        await TauriService.captureScreen();
-        await TauriService.openSelectionWindow();
-      } catch (e) {
-        console.error("Capture failed:", e);
-        await TauriService.showMainWindow();
-      }
-    }, 200);
+    try {
+      await TauriService.performCaptureFlow();
+    } catch (e) {
+      console.error("Capture failed:", e);
+      await TauriService.showMainWindow();
+    }
   };
 
   const copyToClipboard = async () => {

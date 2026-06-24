@@ -10,8 +10,8 @@ import { HistoryItem } from "../core/types";
 
 export class TauriService {
   // Capture
-  static async captureScreen(): Promise<void> {
-    await invoke("capture_screen");
+  static async performCaptureFlow(): Promise<void> {
+    await invoke("perform_capture_flow");
   }
 
   static async getLastCapture(): Promise<number[]> {
@@ -91,37 +91,7 @@ export class TauriService {
     }
   }
 
-  static async openSelectionWindow(): Promise<void> {
-    try {
-      const existing = await WebviewWindow.getByLabel('selection-window');
-      if (existing) {
-        await emit('refresh_capture');
-        // Do not show here. The window will show itself after the new image is loaded.
-        return;
-      }
 
-      const webview = new WebviewWindow('selection-window', {
-        url: '/',
-        title: 'Selection',
-        fullscreen: true,
-        transparent: true,
-        decorations: false,
-        alwaysOnTop: true,
-        skipTaskbar: true,
-        visible: false
-      });
-
-      // Wait for it to be created to ensure no silent failures
-      await webview.once('tauri://created', function () {
-        console.log("Selection window created");
-      });
-      await webview.once('tauri://error', function (e) {
-        console.error("Selection window creation error", e);
-      });
-    } catch (e) {
-      console.error("Failed to open selection window", e);
-    }
-  }
 
 
 

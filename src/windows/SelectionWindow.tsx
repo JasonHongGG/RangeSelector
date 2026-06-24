@@ -15,16 +15,6 @@ export function SelectionWindow() {
     const loadCapture = () => {
       TauriService.getLastCaptureBase64().then((dataUrl) => {
         setBgImage(dataUrl);
-        // Wait for React to render the new background before showing the window
-        requestAnimationFrame(async () => {
-          try {
-            const win = getCurrentWindow();
-            await win.show();
-            await win.setFocus();
-          } catch(e) {
-            console.error("Failed to show selection window", e);
-          }
-        });
       }).catch(console.error);
     };
 

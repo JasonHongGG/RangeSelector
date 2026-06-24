@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { TauriService } from "../services/TauriService";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function SelectionWindow() {
   const [bgImage, setBgImage] = useState<string | null>(null);
@@ -11,20 +12,42 @@ export function SelectionWindow() {
   const [zoom, setZoom] = useState(3);
 
   useEffect(() => {
-    TauriService.getLastCapture().then((bytes) => {
-      const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      setBgImage(url);
-    }).catch(console.error);
+    const loadCapture = () => {
+      TauriService.getLastCaptureBase64().then((dataUrl) => {
+        setBgImage(dataUrl);
+        // Wait for React to render the new background before showing the window
+        requestAnimationFrame(async () => {
+          try {
+            const win = getCurrentWindow();
+            await win.show();
+            await win.setFocus();
+          } catch(e) {
+            console.error("Failed to show selection window", e);
+          }
+        });
+      }).catch(console.error);
+    };
+
+    loadCapture();
+
+    let unlistenRefresh: (() => void) | undefined;
+    TauriService.onRefreshCapture(() => {
+      loadCapture();
+    }).then(unlisten => {
+      unlistenRefresh = unlisten;
+    });
 
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         await TauriService.showMainWindow();
-        await TauriService.closeCurrentWindow();
+        await TauriService.hideCurrentWindow();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (unlistenRefresh) unlistenRefresh();
+    };
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -82,7 +105,7 @@ export function SelectionWindow() {
           const dataUrl = canvas.toDataURL('image/png');
           await TauriService.emitCropResult(dataUrl);
           await TauriService.showMainWindow();
-          await TauriService.closeCurrentWindow();
+          await TauriService.hideCurrentWindow();
         }
       };
       img.src = bgImage;
@@ -151,14 +174,6 @@ export function SelectionWindow() {
             {Math.round(selectStyle.width)} × {Math.round(selectStyle.height)}
           </div>
         </div>
-      )}
-
-      {/* Full-screen subtle crosshair lines targeting the cursor */}
-      {showMagnifier && !isSelecting && (
-        <>
-          <div className="absolute top-0 bottom-0 w-[1px] bg-white/30 mix-blend-difference pointer-events-none z-40" style={{ left: mousePos.x }} />
-          <div className="absolute left-0 right-0 h-[1px] bg-white/30 mix-blend-difference pointer-events-none z-40" style={{ top: mousePos.y }} />
-        </>
       )}
 
       {/* HUD Viewfinder Magnifier */}

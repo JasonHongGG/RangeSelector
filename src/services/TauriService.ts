@@ -18,6 +18,10 @@ export class TauriService {
     return await invoke<number[]>("get_last_capture");
   }
 
+  static async getLastCaptureBase64(): Promise<string> {
+    return await invoke<string>("get_last_capture_base64");
+  }
+
   // History
   static async saveHistory(base64Data: string): Promise<string> {
     return await invoke<string>("save_history", { base64Data });
@@ -91,9 +95,9 @@ export class TauriService {
     try {
       const existing = await WebviewWindow.getByLabel('selection-window');
       if (existing) {
-        await existing.close();
-        // Give it a brief moment to actually destroy the window object in Rust
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await emit('refresh_capture');
+        // Do not show here. The window will show itself after the new image is loaded.
+        return;
       }
 
       const webview = new WebviewWindow('selection-window', {
@@ -103,7 +107,8 @@ export class TauriService {
         transparent: true,
         decorations: false,
         alwaysOnTop: true,
-        skipTaskbar: true
+        skipTaskbar: true,
+        visible: false
       });
 
       // Wait for it to be created to ensure no silent failures
@@ -152,6 +157,13 @@ export class TauriService {
   static async onLoadHistory(callback: (dataUrl: string) => void): Promise<() => void> {
     const unlisten = await listen<{dataUrl: string}>('load_history', (event) => {
       callback(event.payload.dataUrl);
+    });
+    return unlisten;
+  }
+
+  static async onRefreshCapture(callback: () => void): Promise<() => void> {
+    const unlisten = await listen('refresh_capture', () => {
+      callback();
     });
     return unlisten;
   }

@@ -19,6 +19,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::capture_cmd::capture_screen, 
             commands::capture_cmd::get_last_capture,
+            commands::capture_cmd::get_last_capture_base64,
             commands::history_cmd::save_history,
             commands::history_cmd::get_history_list,
             commands::history_cmd::read_history_image,

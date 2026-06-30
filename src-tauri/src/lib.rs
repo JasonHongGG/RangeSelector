@@ -5,34 +5,13 @@ mod commands;
 
 use std::sync::Mutex;
 use models::AppState;
-use tauri::Manager;
 
-#[cfg(target_os = "windows")]
-use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE};
-#[cfg(target_os = "windows")]
-use windows::Win32::Foundation::HWND;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|app| {
-            #[cfg(target_os = "windows")]
-            {
-                if let Some(window) = app.get_webview_window("main") {
-                    if let Ok(hwnd) = window.hwnd() {
-                        unsafe {
-                            let _ = SetWindowDisplayAffinity(HWND(hwnd.0 as _), WDA_EXCLUDEFROMCAPTURE);
-                        }
-                    }
-                }
-                if let Some(window) = app.get_webview_window("selection-window") {
-                    if let Ok(hwnd) = window.hwnd() {
-                        unsafe {
-                            let _ = SetWindowDisplayAffinity(HWND(hwnd.0 as _), WDA_EXCLUDEFROMCAPTURE);
-                        }
-                    }
-                }
-            }
+        .setup(|_app| {
+
             Ok(())
         })
         .manage(AppState {

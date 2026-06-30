@@ -26,24 +26,32 @@ fn encode_png_base64(img: &RgbaImage, fast: bool) -> Result<String, String> {
 
 #[tauri::command]
 pub fn perform_capture_flow(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    // 1. Hide main window immediately to give instant UI feedback
+    // 1. 隱藏主視窗與選取視窗，確保截圖時畫面是乾淨的
     if let Some(main_window) = app.get_webview_window("main") {
         let _ = main_window.hide();
     }
-    
-    // 2. Show selection window immediately to overlay the screen (it is also excluded from capture)
     if let Some(selection_window) = app.get_webview_window("selection-window") {
-        let _ = selection_window.show();
-        let _ = selection_window.set_focus();
+        let _ = selection_window.hide();
     }
     
-    // 3. Capture screen in a background thread so we don't block the IPC response!
+    // 給予作業系統短暫時間確實完成視窗隱藏的繪製動作 (視需求可以微調)
+    // 增加至 200 毫秒，確保 Windows DWM (Desktop Window Manager) 有足夠時間更新畫面緩衝區
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    
+    // 2. 在背景執行緒進行截圖，避免阻塞 IPC
     let last_capture = state.last_capture.clone();
     let app_clone = app.clone();
     
     std::thread::spawn(move || {
         if let Ok(raw_image) = capture_primary_monitor() {
             *last_capture.lock().unwrap() = Some(raw_image);
+            
+            // 3. 截圖完成後，顯示選取視窗供使用者操作
+            if let Some(selection_window) = app_clone.get_webview_window("selection-window") {
+                let _ = selection_window.show();
+                let _ = selection_window.set_focus();
+            }
+            
             let _ = app_clone.emit("capture_ready", ());
         }
     });

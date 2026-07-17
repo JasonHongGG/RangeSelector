@@ -35,8 +35,8 @@ pub fn perform_capture_flow(app: AppHandle, state: State<'_, AppState>) -> Resul
     }
     
     // 給予作業系統短暫時間確實完成視窗隱藏的繪製動作 (視需求可以微調)
-    // 增加至 200 毫秒，確保 Windows DWM (Desktop Window Manager) 有足夠時間更新畫面緩衝區
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    // 增加至 500 毫秒，確保 Windows DWM 的隱藏淡出動畫完全結束，避免截到半透明殘影
+    std::thread::sleep(std::time::Duration::from_millis(500));
     
     // 2. 在背景執行緒進行截圖，避免阻塞 IPC
     let last_capture = state.last_capture.clone();

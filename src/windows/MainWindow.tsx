@@ -27,9 +27,6 @@ export function MainWindow() {
     canRedo, 
     handleUndo, 
     handleRedo, 
-    startDrawing, 
-    draw, 
-    stopDrawing,
     handleClear,
     getDocumentCanvas,
     viewportManager
@@ -193,10 +190,6 @@ export function MainWindow() {
                 <canvas
                   ref={draftCanvasRef}
                   className="absolute inset-0 touch-none"
-                  onPointerDown={startDrawing}
-                  onPointerMove={draw}
-                  onPointerUp={stopDrawing}
-                  onPointerCancel={stopDrawing}
                   onContextMenu={(e) => e.preventDefault()}
                 />
               </div>

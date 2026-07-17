@@ -1,6 +1,6 @@
 import { useState, useEffect, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { useOcrStore } from '../store/useOcrStore';
+
 import { CanvasEngine } from '../core/canvas/CanvasEngine';
 
 export function useCanvasDrawing(
@@ -9,8 +9,7 @@ export function useCanvasDrawing(
   draftCanvasRef: RefObject<HTMLCanvasElement | null>,
   isWindowReady: boolean
 ) {
-  const { color, brushSize, imageSrc, toolMode, isEditing } = useAppStore();
-  const { isOcrModeActive } = useOcrStore();
+  const { imageSrc, isEditing } = useAppStore();
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -28,6 +27,9 @@ export function useCanvasDrawing(
       );
       setEngine(newEngine);
     } else if (!isEditing) {
+      if (engine) {
+        engine.destroy();
+      }
       setEngine(null);
     }
   }, [isEditing, isWindowReady, wrapperRef, mainCanvasRef, draftCanvasRef, engine]);
@@ -37,15 +39,6 @@ export function useCanvasDrawing(
       engine.initImage(imageSrc);
     }
   }, [engine, imageSrc]);
-
-  useEffect(() => {
-    if (engine) {
-      engine.setToolMode(toolMode);
-      engine.setColor(color);
-      engine.setBrushSize(brushSize);
-      engine.setReadonly(isOcrModeActive);
-    }
-  }, [engine, toolMode, color, brushSize, isOcrModeActive]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -86,9 +79,6 @@ export function useCanvasDrawing(
     viewportManager: engine?.getViewportManager() || null,
     canUndo,
     canRedo,
-    startDrawing: (e: React.PointerEvent) => engine?.handlePointerDown(e.nativeEvent),
-    draw: (e: React.PointerEvent) => engine?.handlePointerMove(e.nativeEvent),
-    stopDrawing: (e: React.PointerEvent) => engine?.handlePointerUpOrLeave(e.nativeEvent),
     handleUndo: () => engine?.undo(),
     handleRedo: () => engine?.redo(),
     handleClear: () => engine?.clear(),

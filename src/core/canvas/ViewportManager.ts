@@ -1,5 +1,16 @@
 import { Point } from '../types';
 
+export interface ViewportState {
+  zoom: number;
+  cameraX: number;
+  cameraY: number;
+  containerWidth: number;
+  containerHeight: number;
+  transformString: string;
+}
+
+type Subscriber = (state: ViewportState) => void;
+
 export class ViewportManager {
   private containerWidth: number = 0;
   private containerHeight: number = 0;
@@ -12,46 +23,31 @@ export class ViewportManager {
   private lastPanX: number = 0;
   private lastPanY: number = 0;
   
-  private overlayElements: HTMLElement[] = [];
+  private subscribers: Set<Subscriber> = new Set();
   
   private readonly minZoom = 0.1;
   private readonly maxZoom = 10;
   
-  private onChange: () => void;
+  private onRenderNeeded: () => void;
 
-  constructor(onChange: () => void) {
-    this.onChange = onChange;
+  constructor(onRenderNeeded: () => void) {
+    this.onRenderNeeded = onRenderNeeded;
   }
 
-  public getContainerWidth(): number {
-    return this.containerWidth;
-  }
-
-  public getContainerHeight(): number {
-    return this.containerHeight;
-  }
-
-  public getZoom(): number {
-    return this.zoom;
-  }
-
-  public getCameraX(): number {
-    return this.cameraX;
-  }
-
-  public getCameraY(): number {
-    return this.cameraY;
-  }
+  public getContainerWidth(): number { return this.containerWidth; }
+  public getContainerHeight(): number { return this.containerHeight; }
+  public getZoom(): number { return this.zoom; }
+  public getCameraX(): number { return this.cameraX; }
+  public getCameraY(): number { return this.cameraY; }
 
   public resize(width: number, height: number) {
     this.containerWidth = width;
     this.containerHeight = height;
-    this.syncOverlays();
-    this.onChange();
+    this.notifySubscribers();
+    this.onRenderNeeded();
   }
 
   public autoFit(imageWidth: number, imageHeight: number, padding: number) {
-    // 100% edge-to-edge fit, exactly like Snipping Tool
     const targetWidth = this.containerWidth;
     const targetHeight = this.containerHeight;
     
@@ -60,22 +56,16 @@ export class ViewportManager {
     const scaleX = targetWidth / imageWidth;
     const scaleY = targetHeight / imageHeight;
     
-    // Scale down to fit, but NEVER scale up (Snipping Tool behavior to prevent blurriness)
     this.zoom = Math.min(1, scaleX, scaleY);
     
-    // Center of the document (image + padding)
     this.cameraX = (imageWidth + padding * 2) / 2;
     this.cameraY = (imageHeight + padding * 2) / 2;
     
-    this.syncOverlays();
-    this.onChange();
+    this.notifySubscribers();
+    this.onRenderNeeded();
   }
 
   public applyToContext(ctx: CanvasRenderingContext2D, dpr: number = 1) {
-    // Snap translation to exact physical pixels to prevent sub-pixel blurriness!
-    // Correct Math: screenX = cx + (docX - camX) * zoom
-    // We want: offsetX + docX * zoom = screenX
-    // So offsetX = cx - camX * zoom
     const offsetX = Math.round((this.containerWidth / 2 - this.cameraX * this.zoom) * dpr);
     const offsetY = Math.round((this.containerHeight / 2 - this.cameraY * this.zoom) * dpr);
     
@@ -84,7 +74,6 @@ export class ViewportManager {
   }
 
   public mapScreenToDocument(screenX: number, screenY: number): Point {
-    // Inverse of applyToContext
     const docX = (screenX - this.containerWidth / 2) / this.zoom + this.cameraX;
     const docY = (screenY - this.containerHeight / 2) / this.zoom + this.cameraY;
     return { x: docX, y: docY };
@@ -108,8 +97,8 @@ export class ViewportManager {
     this.cameraX += pointBefore.x - pointAfter.x;
     this.cameraY += pointBefore.y - pointAfter.y;
     
-    this.syncOverlays();
-    this.onChange();
+    this.notifySubscribers();
+    this.onRenderNeeded();
   }
 
   public handlePanStart(screenX: number, screenY: number): boolean {
@@ -130,8 +119,8 @@ export class ViewportManager {
     this.lastPanX = screenX;
     this.lastPanY = screenY;
     
-    this.syncOverlays();
-    this.onChange();
+    this.notifySubscribers();
+    this.onRenderNeeded();
     return true;
   }
 
@@ -143,21 +132,27 @@ export class ViewportManager {
     return false;
   }
 
-  public registerOverlay(element: HTMLElement) {
-    if (!this.overlayElements.includes(element)) {
-      this.overlayElements.push(element);
-      this.syncOverlays();
-    }
+  public subscribe(callback: Subscriber): () => void {
+    this.subscribers.add(callback);
+    callback(this.getState());
+    return () => this.subscribers.delete(callback);
   }
 
-  public unregisterOverlay(element: HTMLElement) {
-    this.overlayElements = this.overlayElements.filter(el => el !== element);
+  private getState(): ViewportState {
+    return {
+      zoom: this.zoom,
+      cameraX: this.cameraX,
+      cameraY: this.cameraY,
+      containerWidth: this.containerWidth,
+      containerHeight: this.containerHeight,
+      transformString: `translate(${this.containerWidth / 2}px, ${this.containerHeight / 2}px) scale(${this.zoom}) translate(${-this.cameraX}px, ${-this.cameraY}px)`
+    };
   }
 
-  public syncOverlays() {
-    for (const el of this.overlayElements) {
-      el.style.transformOrigin = '0 0';
-      el.style.transform = `translate(${this.containerWidth / 2}px, ${this.containerHeight / 2}px) scale(${this.zoom}) translate(${-this.cameraX}px, ${-this.cameraY}px)`;
+  private notifySubscribers() {
+    const state = this.getState();
+    for (const sub of this.subscribers) {
+      sub(state);
     }
   }
 }

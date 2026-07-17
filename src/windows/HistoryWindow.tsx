@@ -6,7 +6,7 @@ import { WindowService } from "../services/WindowService";
 import { ClipboardService } from "../services/ClipboardService";
 import { useUIStore } from "../store/useUIStore";
 import { TooltipTrigger } from "../components/ui/tooltip";
-import { HistoryItem } from "../core/types";
+import { HistoryItem } from "../types";
 
 function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem, onSelect: (path: string) => void, onDelete: (id: string) => void }) {
   const showNotification = useUIStore(state => state.showNotification);

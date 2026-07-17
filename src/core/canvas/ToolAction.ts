@@ -1,4 +1,4 @@
-import { Point } from '../types';
+import { Point } from '../../types';
 
 export interface ToolContext {
   mainCtx: CanvasRenderingContext2D;

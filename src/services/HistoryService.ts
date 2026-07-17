@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit } from "@tauri-apps/api/event";
-import { HistoryItem } from "../core/types";
+import { HistoryItem } from "../types";
 
 export class HistoryService {
   static async saveHistory(base64Data: string): Promise<string> {

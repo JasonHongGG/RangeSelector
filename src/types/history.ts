@@ -3,8 +3,3 @@ export interface HistoryItem {
   timestamp: string;
   path: string;
 }
-
-export interface Point {
-  x: number;
-  y: number;
-}

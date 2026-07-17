@@ -1,5 +1,5 @@
 import { useState, useEffect, RefObject } from 'react';
-import { OcrLineData } from '../core/ocr/types';
+import { OcrLineData } from '../types';
 
 export interface HighlightRect {
   x: number;

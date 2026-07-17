@@ -1,4 +1,4 @@
-import { OcrLineData } from '../../core/ocr/types';
+import { OcrLineData } from '../../types';
 
 interface Props {
   linesData: OcrLineData[];

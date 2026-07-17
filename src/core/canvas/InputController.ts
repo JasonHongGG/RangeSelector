@@ -4,7 +4,7 @@ import { HistoryManager } from './HistoryManager';
 import { ToolRegistry } from './ToolRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useOcrStore } from '../../store/useOcrStore';
-import { Point } from '../types';
+import { Point } from '../../types';
 
 export class InputController {
   private wrapper: HTMLDivElement;

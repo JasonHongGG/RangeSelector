@@ -1,5 +1,5 @@
 import { ToolAction, ToolContext } from './ToolAction';
-import { Point } from '../types';
+import { Point } from '../../types';
 
 export class EraserTool implements ToolAction {
   private points: Point[] = [];

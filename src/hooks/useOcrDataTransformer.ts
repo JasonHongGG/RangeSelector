@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { OcrLineData } from '../core/ocr/types';
+import { OcrLineData } from '../types';
 
 export function useOcrDataTransformer(result: any, status: string): OcrLineData[] {
   return useMemo(() => {

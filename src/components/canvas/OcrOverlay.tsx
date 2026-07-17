@@ -37,7 +37,16 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
         willChange: 'transform',
       }}
     >
-      {result.lines.map((line, lineIdx) => {
+      {[...result.lines]
+        .sort((a, b) => {
+          // Sort top-to-bottom, grouping elements on the same visual line (using 50% height tolerance)
+          const yTolerance = Math.min(a.height, b.height) * 0.5;
+          if (Math.abs(a.y - b.y) < yTolerance) {
+            return a.x - b.x; // Sort left-to-right if on the same line
+          }
+          return a.y - b.y;
+        })
+        .map((line, lineIdx, sortedLinesArray) => {
         const logicalX = (line.x / dpr) + DOCUMENT_PADDING;
         const logicalY = (line.y / dpr) + DOCUMENT_PADDING;
         const logicalW = line.width / dpr;
@@ -59,29 +68,33 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
             }}
             title={line.text}
           >
-            <div className="w-full h-full relative" style={{ transform: `translate(${padX}px, ${padY}px)` }}>
-              {line.words.map((word, wordIdx) => {
-                const relX = (word.x - line.x) / dpr;
-                const relY = (word.y - line.y) / dpr;
-                const wordH = word.height / dpr;
+            <div className="w-full h-full relative">
+              {[...line.words].sort((a, b) => a.x - b.x).map((word, wordIdx, sortedWordsArray) => {
+                const isFirst = wordIdx === 0;
+                const isLast = wordIdx === sortedWordsArray.length - 1;
                 
-                // Calculate extended width to completely eliminate horizontal gaps between words
-                const nextWord = line.words[wordIdx + 1];
-                const nextRelX = nextWord ? (nextWord.x - line.x) / dpr : line.width / dpr;
-                const extendedWidth = nextRelX - relX;
+                const relX = (word.x - line.x) / dpr;
+                const nextWord = sortedWordsArray[wordIdx + 1];
+                const nextRelX = nextWord ? (nextWord.x - line.x) / dpr : logicalW;
+                
+                // Expand the first and last words to fill the padding area
+                const spanLeft = isFirst ? 0 : relX + padX;
+                const spanRight = isLast ? logicalW + padX * 2 : nextRelX + padX;
+                const spanWidth = spanRight - spanLeft;
+                const spanHeight = logicalH + padY * 2;
                 
                 return (
                   <span
                     key={wordIdx}
                     className="absolute whitespace-pre select-text pointer-events-auto selection:bg-blue-500/40 selection:text-transparent"
                     style={{
-                      left: `${relX}px`,
-                      top: `${relY}px`,
-                      width: `${extendedWidth}px`, // Use extended width to cover gaps
-                      height: `${wordH}px`,
+                      left: `${spanLeft}px`,
+                      top: 0,
+                      width: `${spanWidth}px`,
+                      height: `100%`,
                       color: 'transparent',
-                      fontSize: `${Math.max(wordH * 0.8, 12)}px`,
-                      lineHeight: `${wordH}px`,
+                      fontSize: `${Math.max(logicalH * 0.8, 12)}px`,
+                      lineHeight: `${spanHeight}px`,
                       display: 'flex',
                       alignItems: 'center',
                     }}

@@ -73,9 +73,11 @@ export class ViewportManager {
 
   public applyToContext(ctx: CanvasRenderingContext2D, dpr: number = 1) {
     // Snap translation to exact physical pixels to prevent sub-pixel blurriness!
-    // This is the mathematical key to ensuring 1:1 crisp images in HTML Canvas.
-    const offsetX = Math.round((this.containerWidth / 2 - this.cameraX) * this.zoom * dpr);
-    const offsetY = Math.round((this.containerHeight / 2 - this.cameraY) * this.zoom * dpr);
+    // Correct Math: screenX = cx + (docX - camX) * zoom
+    // We want: offsetX + docX * zoom = screenX
+    // So offsetX = cx - camX * zoom
+    const offsetX = Math.round((this.containerWidth / 2 - this.cameraX * this.zoom) * dpr);
+    const offsetY = Math.round((this.containerHeight / 2 - this.cameraY * this.zoom) * dpr);
     
     ctx.translate(offsetX, offsetY);
     ctx.scale(this.zoom * dpr, this.zoom * dpr);

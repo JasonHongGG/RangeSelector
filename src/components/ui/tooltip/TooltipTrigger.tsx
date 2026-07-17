@@ -1,13 +1,13 @@
 import React, { useRef, ReactNode, cloneElement } from 'react';
-import { useUIStore } from '../../store/useUIStore';
+import { useUIStore } from '../../../store/useUIStore';
 
-interface TooltipProps {
+interface TooltipTriggerProps {
   content: ReactNode;
   children: React.ReactElement<any>;
   delay?: number;
 }
 
-export function Tooltip({ content, children, delay = 300 }: TooltipProps) {
+export function TooltipTrigger({ content, children, delay = 300 }: TooltipTriggerProps) {
   const { setTooltip, hideTooltip } = useUIStore();
   const timerRef = useRef<number | null>(null);
 

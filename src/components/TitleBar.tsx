@@ -2,7 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X, Sun, Moon } from 'lucide-react';
 import React from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Tooltip } from './common/Tooltip';
+import { TooltipTrigger } from './ui/tooltip';
 
 interface TitleBarProps {
   title?: string;
@@ -51,31 +51,31 @@ export default function TitleBar({ title = 'RangeSelector', onClose, children }:
           </div>
         )}
         {appWindow.label === 'main' && (
-          <Tooltip content="Toggle Theme">
+          <TooltipTrigger content="Toggle Theme">
             <button
               className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             >
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
-          </Tooltip>
+          </TooltipTrigger>
         )}
-        <Tooltip content="Minimize">
+        <TooltipTrigger content="Minimize">
           <button
             className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-black/10 dark:hover:bg-white/10 text-gray-500 dark:text-white/50 hover:text-black dark:hover:text-white transition-colors"
             onClick={handleMinimize}
           >
             <Minus size={16} />
           </button>
-        </Tooltip>
-        <Tooltip content="Close">
+        </TooltipTrigger>
+        <TooltipTrigger content="Close">
           <button
             className="flex justify-center items-center w-8 h-8 rounded-md bg-transparent hover:bg-red-500 text-gray-500 dark:text-white/50 hover:text-white transition-colors"
             onClick={handleClose}
           >
             <X size={16} />
           </button>
-        </Tooltip>
+        </TooltipTrigger>
       </div>
     </div>
   );

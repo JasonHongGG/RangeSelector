@@ -5,7 +5,7 @@ import { HistoryService } from "../services/HistoryService";
 import { WindowService } from "../services/WindowService";
 import { ClipboardService } from "../services/ClipboardService";
 import { useUIStore } from "../store/useUIStore";
-import { Tooltip } from "../components/common/Tooltip";
+import { TooltipTrigger } from "../components/ui/tooltip";
 import { HistoryItem } from "../core/types";
 
 function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem, onSelect: (path: string) => void, onDelete: (id: string) => void }) {
@@ -67,22 +67,22 @@ function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem,
 
       {/* Floating Action Buttons */}
       <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-20">
-        <Tooltip content="Copy to clipboard" delay={200}>
+        <TooltipTrigger content="Copy to clipboard" delay={200}>
           <button 
             onClick={handleCopy} 
             className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-blue-500/80 hover:border-blue-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
           >
             <Copy size={14} />
           </button>
-        </Tooltip>
-        <Tooltip content="Delete" delay={200}>
+        </TooltipTrigger>
+        <TooltipTrigger content="Delete" delay={200}>
           <button 
             onClick={handleDelete} 
             className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-red-500/80 hover:border-red-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
           >
             <Trash2 size={14} />
           </button>
-        </Tooltip>
+        </TooltipTrigger>
       </div>
     </div>
   );

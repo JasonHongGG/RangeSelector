@@ -6,7 +6,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { useOcrStore } from "../../store/useOcrStore";
 import { OcrService } from "../../services/OcrService";
 import { IconButton } from "../common/IconButton";
-import { Tooltip } from "../common/Tooltip";
+import { TooltipTrigger } from "../ui/tooltip";
 import { Slider } from "../common/Slider";
 import { cn } from "../../utils/cn";
 
@@ -124,7 +124,7 @@ export function FloatingToolbar({
         
         {/* Tools */}
         <div className="flex items-center gap-1 mr-1">
-          <Tooltip content="Brush & Color">
+          <TooltipTrigger content="Brush & Color">
             <button 
               onClick={() => handleToolClick('draw')}
               className={cn(
@@ -143,9 +143,9 @@ export function FloatingToolbar({
                 <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
               )}
             </button>
-          </Tooltip>
+          </TooltipTrigger>
           
-          <Tooltip content="Eraser">
+          <TooltipTrigger content="Eraser">
             <button 
               onClick={() => handleToolClick('erase')} 
               className={cn(
@@ -158,31 +158,31 @@ export function FloatingToolbar({
                 <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
               )}
             </button>
-          </Tooltip>
+          </TooltipTrigger>
         </div>
 
         <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
 
         {/* Actions */}
-        <Tooltip content="Undo">
+        <TooltipTrigger content="Undo">
           <div>
             <IconButton onClick={onUndo} disabled={!canUndo}>
               <Undo2 size={16} />
             </IconButton>
           </div>
-        </Tooltip>
-        <Tooltip content="Redo">
+        </TooltipTrigger>
+        <TooltipTrigger content="Redo">
           <div>
             <IconButton onClick={onRedo} disabled={!canRedo}>
               <Redo2 size={16} />
             </IconButton>
           </div>
-        </Tooltip>
+        </TooltipTrigger>
 
         <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
 
         {/* OCR Action */}
-        <Tooltip content={isOcrModeActive ? "Turn off OCR" : "Recognize Text"}>
+        <TooltipTrigger content={isOcrModeActive ? "Turn off OCR" : "Recognize Text"}>
           <div>
             <IconButton 
               onClick={() => {
@@ -201,26 +201,26 @@ export function FloatingToolbar({
               {ocrStatus === 'recognizing' ? <Loader2 size={16} className="animate-spin" /> : <ScanText size={16} />}
             </IconButton>
           </div>
-        </Tooltip>
+        </TooltipTrigger>
 
         <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
 
         {/* IO Actions */}
-        <Tooltip content="Copy to Clipboard">
+        <TooltipTrigger content="Copy to Clipboard">
           <IconButton onClick={onCopy} className="hover:bg-blue-500/10 text-blue-500 dark:text-blue-400">
             <Copy size={16} />
           </IconButton>
-        </Tooltip>
-        <Tooltip content="Export Image">
+        </TooltipTrigger>
+        <TooltipTrigger content="Export Image">
           <IconButton onClick={onExport} className="hover:bg-green-500/10 text-green-500 dark:text-green-400">
             <Save size={16} />
           </IconButton>
-        </Tooltip>
-        <Tooltip content="Discard">
+        </TooltipTrigger>
+        <TooltipTrigger content="Discard">
           <IconButton onClick={onDiscard} className="hover:bg-red-500/10 text-red-500 dark:text-red-400">
             <XCircle size={16} />
           </IconButton>
-        </Tooltip>
+        </TooltipTrigger>
 
       </div>
     </div>

@@ -12,7 +12,7 @@ import { FloatingToolbar } from "../components/toolbar/FloatingToolbar";
 import { OcrOverlay } from "../components/canvas/OcrOverlay";
 import { getCroppedCanvas } from "../utils/canvasUtils";
 import { useUIStore } from "../store/useUIStore";
-import { Tooltip } from "../components/common/Tooltip";
+import { TooltipTrigger } from "../components/ui/tooltip";
 
 export function MainWindow() {
   const { isEditing, setIsEditing, setImageSrc, imageSrc } = useAppStore();
@@ -140,16 +140,16 @@ export function MainWindow() {
   return (
     <div className="flex flex-col h-screen bg-white/95 dark:bg-[#0f1115]/95 backdrop-blur-2xl border border-black/10 dark:border-white/5 rounded-xl overflow-hidden shadow-2xl relative transition-colors selection:bg-blue-500/30">
       <TitleBar>
-        <Tooltip content="New Capture">
+        <TooltipTrigger content="New Capture">
           <IconButton onClick={handleCapture}>
             <ScanLine size={16} />
           </IconButton>
-        </Tooltip>
-        <Tooltip content="History">
+        </TooltipTrigger>
+        <TooltipTrigger content="History">
           <IconButton onClick={() => WindowService.openHistoryWindow()}>
             <History size={16} />
           </IconButton>
-        </Tooltip>
+        </TooltipTrigger>
       </TitleBar>
 
       <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">

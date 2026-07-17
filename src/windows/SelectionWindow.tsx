@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { TauriService } from "../services/TauriService";
+import { CaptureService } from "../services/CaptureService";
+import { WindowService } from "../services/WindowService";
 
 export function SelectionWindow() {
   const [isCaptureReady, setIsCaptureReady] = useState(false);
@@ -17,7 +18,7 @@ export function SelectionWindow() {
     let unlistenCapture: (() => void) | undefined;
     
     // Set capture ready when rust background thread finishes naked capture
-    TauriService.onCaptureReady(() => {
+    CaptureService.onCaptureReady(() => {
       setIsCaptureReady(true);
     }).then(unlisten => {
       unlistenCapture = unlisten;
@@ -27,8 +28,8 @@ export function SelectionWindow() {
       if (e.key === 'Escape') {
         setIsCaptureReady(false);
         setMagnifierImage(null);
-        await TauriService.showMainWindow();
-        await TauriService.hideCurrentWindow();
+        await WindowService.showMainWindow();
+        await WindowService.hideCurrentWindow();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -61,7 +62,7 @@ export function SelectionWindow() {
       const physX = Math.round(x * dpr);
       const physY = Math.round(y * dpr);
       
-      TauriService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
+      CaptureService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
         setMagnifierImage(dataUrl);
         isFetchingMagRef.current = false;
       }).catch((err) => {
@@ -90,7 +91,7 @@ export function SelectionWindow() {
        const physX = Math.round(mousePos.x * dpr);
        const physY = Math.round(mousePos.y * dpr);
        
-       TauriService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
+       CaptureService.getMagnifierRegion(physX, physY, size).then(dataUrl => {
           setMagnifierImage(dataUrl);
           isFetchingMagRef.current = false;
        });
@@ -117,15 +118,15 @@ export function SelectionWindow() {
         const physW = Math.round(width * dpr);
         const physH = Math.round(height * dpr);
         
-        const dataUrl = await TauriService.cropFromRaw(physX, physY, physW, physH);
+        const dataUrl = await CaptureService.cropFromRaw(physX, physY, physW, physH);
         
-        await TauriService.emitCropResult(dataUrl);
+        await CaptureService.emitCropResult(dataUrl);
         
         setIsCaptureReady(false);
         setMagnifierImage(null);
         
-        await TauriService.showMainWindow();
-        await TauriService.hideCurrentWindow();
+        await WindowService.showMainWindow();
+        await WindowService.hideCurrentWindow();
       } catch(err) {
         console.error("Failed to crop from raw:", err);
       }

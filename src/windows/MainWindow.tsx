@@ -3,18 +3,24 @@ import TitleBar from "../components/TitleBar";
 import { ScanLine, History } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { useCanvasDrawing } from "../hooks/useCanvasDrawing";
-import { TauriService } from "../services/TauriService";
+import { WindowService } from "../services/WindowService";
+import { CaptureService } from "../services/CaptureService";
+import { HistoryService } from "../services/HistoryService";
+import { ClipboardService } from "../services/ClipboardService";
 import { IconButton } from "../components/common/IconButton";
 import { FloatingToolbar } from "../components/toolbar/FloatingToolbar";
 import { getCroppedCanvas } from "../utils/canvasUtils";
+import { useUIStore } from "../store/useUIStore";
+import { Tooltip } from "../components/common/Tooltip";
 
 export function MainWindow() {
   const { isEditing, setIsEditing, setImageSrc } = useAppStore();
+  const showNotification = useUIStore(state => state.showNotification);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const { 
-    history, 
-    redoStack, 
+    canUndo, 
+    canRedo, 
     handleUndo, 
     handleRedo, 
     startDrawing, 
@@ -29,11 +35,11 @@ export function MainWindow() {
     let unlistenLoad: (() => void) | undefined;
     
     const setup = async () => {
-      const uCrop = await TauriService.onCropResult(async (dataUrl) => {
+      const uCrop = await CaptureService.onCropResult(async (dataUrl) => {
         setImageSrc(dataUrl);
         setIsEditing(true);
         try {
-          await TauriService.saveHistory(dataUrl);
+          await HistoryService.saveHistory(dataUrl);
         } catch(e) {
           console.error("Failed to save history", e);
         }
@@ -41,7 +47,7 @@ export function MainWindow() {
       if (!isMounted) uCrop();
       else unlistenCrop = uCrop;
       
-      const uLoad = await TauriService.onLoadHistory((dataUrl) => {
+      const uLoad = await HistoryService.onLoadHistory((dataUrl) => {
         setImageSrc(dataUrl);
         setIsEditing(true);
       });
@@ -59,18 +65,18 @@ export function MainWindow() {
 
   useEffect(() => {
     if (isEditing) {
-      TauriService.setExpandedMode();
+      WindowService.setExpandedMode();
     } else {
-      TauriService.setCompactMode();
+      WindowService.setCompactMode();
     }
   }, [isEditing]);
 
   const handleCapture = async () => {
     try {
-      await TauriService.performCaptureFlow();
+      await CaptureService.performCaptureFlow();
     } catch (e) {
       console.error("Capture failed:", e);
-      await TauriService.showMainWindow();
+      await WindowService.showMainWindow();
     }
   };
 
@@ -78,9 +84,11 @@ export function MainWindow() {
     if (canvasRef.current) {
       try {
         const canvas = getCroppedCanvas(canvasRef.current);
-        await TauriService.copyCanvasToClipboard(canvas);
+        await ClipboardService.copyCanvasToClipboard(canvas);
+        showNotification('success', 'Image copied to clipboard');
       } catch (e) {
         console.error("Copy failed", e);
+        showNotification('error', 'Failed to copy image');
       }
     }
   };
@@ -89,9 +97,11 @@ export function MainWindow() {
     if (canvasRef.current) {
       try {
         const canvas = getCroppedCanvas(canvasRef.current);
-        await TauriService.exportCanvas(canvas);
+        await ClipboardService.exportCanvas(canvas);
+        showNotification('success', 'Image exported successfully');
       } catch (e) {
         console.error("Export failed", e);
+        showNotification('error', 'Failed to export image');
       }
     }
   };
@@ -99,12 +109,16 @@ export function MainWindow() {
   return (
     <div className="flex flex-col h-screen bg-white/95 dark:bg-[#0f1115]/95 backdrop-blur-2xl border border-black/10 dark:border-white/5 rounded-xl overflow-hidden shadow-2xl relative transition-colors selection:bg-blue-500/30">
       <TitleBar>
-        <IconButton onClick={handleCapture} title="New Capture">
-          <ScanLine size={16} />
-        </IconButton>
-        <IconButton onClick={() => TauriService.openHistoryWindow()} title="History">
-          <History size={16} />
-        </IconButton>
+        <Tooltip content="New Capture">
+          <IconButton onClick={handleCapture}>
+            <ScanLine size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="History">
+          <IconButton onClick={() => WindowService.openHistoryWindow()}>
+            <History size={16} />
+          </IconButton>
+        </Tooltip>
       </TitleBar>
 
       <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
@@ -145,8 +159,8 @@ export function MainWindow() {
                 onCopy={copyToClipboard}
                 onExport={exportImage}
                 onDiscard={() => setIsEditing(false)}
-                canUndo={history.length > 1}
-                canRedo={redoStack.length > 0}
+                canUndo={canUndo}
+                canRedo={canRedo}
               />
             </div>
           </div>

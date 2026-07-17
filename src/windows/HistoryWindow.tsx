@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
 import TitleBar from "../components/TitleBar";
 import { Copy, Trash2, History } from "lucide-react";
-import { TauriService } from "../services/TauriService";
+import { HistoryService } from "../services/HistoryService";
+import { WindowService } from "../services/WindowService";
+import { ClipboardService } from "../services/ClipboardService";
+import { useUIStore } from "../store/useUIStore";
+import { Tooltip } from "../components/common/Tooltip";
 import { HistoryItem } from "../core/types";
 
 function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem, onSelect: (path: string) => void, onDelete: (id: string) => void }) {
+  const showNotification = useUIStore(state => state.showNotification);
   const [src, setSrc] = useState<string | null>(null);
+  const [blobCache, setBlobCache] = useState<Blob | null>(null);
 
   useEffect(() => {
-    TauriService.readHistoryImage(item.path)
+    HistoryService.readHistoryImage(item.path)
       .then(bytes => {
         const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
+        setBlobCache(blob);
         setSrc(URL.createObjectURL(blob));
       })
       .catch(console.error);
@@ -18,27 +25,13 @@ function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem,
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!src) return;
+    if (!blobCache) return;
     try {
-      const { writeImage } = await import('@tauri-apps/plugin-clipboard-manager');
-      const { Image } = await import('@tauri-apps/api/image');
-      
-      const img = new globalThis.Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const tauriImg = await Image.new(new Uint8Array(imageData.data), canvas.width, canvas.height);
-          await writeImage(tauriImg);
-        }
-      };
-      img.src = src;
+      await ClipboardService.copyImageToClipboardFromBlob(blobCache);
+      showNotification('success', 'Image copied to clipboard');
     } catch (err) {
       console.error("Copy failed", err);
+      showNotification('error', 'Failed to copy image');
     }
   };
 
@@ -74,20 +67,22 @@ function HistoryItemComponent({ item, onSelect, onDelete }: { item: HistoryItem,
 
       {/* Floating Action Buttons */}
       <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-20">
-        <button 
-          onClick={handleCopy} 
-          className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-blue-500/80 hover:border-blue-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
-          title="Copy to clipboard"
-        >
-          <Copy size={14} />
-        </button>
-        <button 
-          onClick={handleDelete} 
-          className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-red-500/80 hover:border-red-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Tooltip content="Copy to clipboard" delay={200}>
+          <button 
+            onClick={handleCopy} 
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-blue-500/80 hover:border-blue-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
+          >
+            <Copy size={14} />
+          </button>
+        </Tooltip>
+        <Tooltip content="Delete" delay={200}>
+          <button 
+            onClick={handleDelete} 
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white/90 border border-white/20 hover:bg-red-500/80 hover:border-red-400 hover:scale-110 hover:text-white transition-all shadow-lg" 
+          >
+            <Trash2 size={14} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -97,21 +92,23 @@ export function HistoryWindow() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const showNotification = useUIStore(state => state.showNotification);
+
   useEffect(() => {
-    TauriService.getHistoryList()
+    HistoryService.getHistoryList()
       .then(res => setHistory(res))
       .catch(e => setErrorMsg(String(e)));
   }, []);
 
   const handleSelect = async (path: string) => {
     try {
-      const bytes = await TauriService.readHistoryImage(path);
+      const bytes = await HistoryService.readHistoryImage(path);
       const blob = new Blob([new Uint8Array(bytes)], { type: 'image/png' });
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUrl = reader.result as string;
-        await TauriService.emitLoadHistory(dataUrl);
-        await TauriService.showMainWindow();
+        await HistoryService.emitLoadHistory(dataUrl);
+        await WindowService.showMainWindow();
       };
       reader.readAsDataURL(blob);
     } catch (e) {
@@ -122,11 +119,12 @@ export function HistoryWindow() {
 
   const handleDelete = async (id: string) => {
     try {
-      await TauriService.deleteHistory(id);
+      await HistoryService.deleteHistory(id);
       setHistory(prev => prev.filter(item => item.id !== id));
+      showNotification('success', 'History item deleted');
     } catch (e) {
       console.error(e);
-      setErrorMsg(String(e));
+      showNotification('error', 'Failed to delete history item');
     }
   };
 

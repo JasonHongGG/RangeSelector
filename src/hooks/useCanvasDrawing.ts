@@ -1,209 +1,63 @@
-import { useState, useRef, useEffect, RefObject } from 'react';
+import { useState, useEffect, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { CanvasEngine } from '../core/canvas/CanvasEngine';
 
 export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>) {
-  const { color, brushSize, imageSrc, toolMode } = useAppStore();
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [history, setHistory] = useState<ImageData[]>([]);
-  const [redoStack, setRedoStack] = useState<ImageData[]>([]);
-  const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
-  
-  const pointsRef = useRef<{x: number, y: number}[]>([]);
+  const { color, brushSize, imageSrc, toolMode, isEditing } = useAppStore();
+  const [engine, setEngine] = useState<CanvasEngine | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   useEffect(() => {
-    if (imageSrc && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d', { willReadFrequently: true });
-      if (context) {
-        setCtx(context);
-        const img = new globalThis.Image();
-        img.onload = () => {
-          const dpr = window.devicePixelRatio || 1;
-          const PADDING = 150;
-          const physPadding = Math.round(PADDING * dpr);
-
-          canvas.width = img.width + physPadding * 2;
-          canvas.height = img.height + physPadding * 2;
-          
-          canvas.style.width = `${(img.width / dpr) + PADDING * 2}px`;
-          canvas.style.height = `${(img.height / dpr) + PADDING * 2}px`;
-          
-          context.drawImage(img, physPadding, physPadding);
-          setHistory([context.getImageData(0, 0, canvas.width, canvas.height)]);
-          setRedoStack([]);
-        };
-        img.src = imageSrc;
-      }
+    if (isEditing && canvasRef.current && !engine) {
+      const newEngine = new CanvasEngine(canvasRef.current, (undoable, redoable) => {
+        setCanUndo(undoable);
+        setCanRedo(redoable);
+      });
+      setEngine(newEngine);
+    } else if (!isEditing) {
+      setEngine(null);
     }
-  }, [imageSrc, canvasRef]);
+  }, [isEditing, canvasRef, engine]);
 
-  const handleUndo = () => {
-    if (history.length > 1 && ctx && canvasRef.current) {
-      const current = history[history.length - 1];
-      setRedoStack(prev => [...prev, current]);
-      const previous = history[history.length - 2];
-      ctx.putImageData(previous, 0, 0);
-      setHistory(prev => prev.slice(0, -1));
+  useEffect(() => {
+    if (engine && imageSrc) {
+      engine.initImage(imageSrc);
     }
-  };
+  }, [engine, imageSrc]);
 
-  const handleRedo = () => {
-    if (redoStack.length > 0 && ctx && canvasRef.current) {
-      const next = redoStack[redoStack.length - 1];
-      ctx.putImageData(next, 0, 0);
-      setHistory(prev => [...prev, next]);
-      setRedoStack(prev => prev.slice(0, -1));
+  useEffect(() => {
+    if (engine) {
+      engine.setToolMode(toolMode);
+      engine.setColor(color);
+      engine.setBrushSize(brushSize);
     }
-  };
-
-  const handleClear = () => {
-    if (history.length > 0 && ctx && canvasRef.current) {
-      const baseImage = history[0];
-      ctx.putImageData(baseImage, 0, 0);
-      const newData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-      setHistory(prev => [...prev, newData]);
-      setRedoStack([]);
-    }
-  };
+  }, [engine, toolMode, color, brushSize]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!engine) return;
       if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) {
-          handleRedo();
+          engine.redo();
         } else {
-          handleUndo();
+          engine.undo();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [history, redoStack, ctx]);
-
-  const startDrawing = (e: React.MouseEvent) => {
-    if (!ctx || !canvasRef.current) return;
-    setIsDrawing(true);
-    const rect = canvasRef.current.getBoundingClientRect();
-    const canvasWidth = canvasRef.current.width;
-    const canvasHeight = canvasRef.current.height;
-    
-    // Calculate rendered size and offsets due to object-fit: contain
-    const canvasRatio = canvasWidth / canvasHeight;
-    const rectRatio = rect.width / rect.height;
-    
-    let renderedWidth = rect.width;
-    let renderedHeight = rect.height;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    if (canvasRatio > rectRatio) {
-      renderedHeight = rect.width / canvasRatio;
-      offsetY = (rect.height - renderedHeight) / 2;
-    } else {
-      renderedWidth = rect.height * canvasRatio;
-      offsetX = (rect.width - renderedWidth) / 2;
-    }
-
-    const x = ((e.clientX - rect.left - offsetX) / renderedWidth) * canvasWidth;
-    const y = ((e.clientY - rect.top - offsetY) / renderedHeight) * canvasHeight;
-    
-    pointsRef.current = [{x, y}];
-    
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.strokeStyle = color;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.lineWidth = brushSize * dpr;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.imageSmoothingEnabled = true;
-    ctx.globalCompositeOperation = toolMode === 'erase' ? 'destination-out' : 'source-over';
-    
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const draw = (e: React.MouseEvent) => {
-    if (!isDrawing || !ctx || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const canvasWidth = canvasRef.current.width;
-    const canvasHeight = canvasRef.current.height;
-    
-    const canvasRatio = canvasWidth / canvasHeight;
-    const rectRatio = rect.width / rect.height;
-    
-    let renderedWidth = rect.width;
-    let renderedHeight = rect.height;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    if (canvasRatio > rectRatio) {
-      renderedHeight = rect.width / canvasRatio;
-      offsetY = (rect.height - renderedHeight) / 2;
-    } else {
-      renderedWidth = rect.height * canvasRatio;
-      offsetX = (rect.width - renderedWidth) / 2;
-    }
-
-    const x = ((e.clientX - rect.left - offsetX) / renderedWidth) * canvasWidth;
-    const y = ((e.clientY - rect.top - offsetY) / renderedHeight) * canvasHeight;
-    
-    pointsRef.current.push({x, y});
-    const points = pointsRef.current;
-    
-    if (points.length < 3) {
-      const p0 = points[0];
-      const p1 = points[1];
-      if (p0 && p1) {
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
-      }
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    
-    for (let i = 1; i < points.length - 2; i++) {
-      const xc = (points[i].x + points[i + 1].x) / 2;
-      const yc = (points[i].y + points[i + 1].y) / 2;
-      ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-    }
-    
-    const lastPoint = points[points.length - 1];
-    const secondLastPoint = points[points.length - 2];
-    ctx.quadraticCurveTo(
-      secondLastPoint.x, 
-      secondLastPoint.y, 
-      lastPoint.x, 
-      lastPoint.y
-    );
-    
-    ctx.stroke();
-    pointsRef.current = points.slice(-3);
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing || !ctx || !canvasRef.current) return;
-    setIsDrawing(false);
-    ctx.closePath();
-    pointsRef.current = [];
-    const newData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-    setHistory(prev => [...prev, newData]);
-    setRedoStack([]);
-  };
+  }, [engine]);
 
   return {
-    isDrawing,
-    history,
-    redoStack,
-    handleUndo,
-    handleRedo,
-    handleClear,
-    startDrawing,
-    draw,
-    stopDrawing
+    engine,
+    canUndo,
+    canRedo,
+    startDrawing: (e: React.MouseEvent) => engine?.handleMouseDown(e),
+    draw: (e: React.MouseEvent) => engine?.handleMouseMove(e),
+    stopDrawing: () => engine?.handleMouseUpOrLeave(),
+    handleUndo: () => engine?.undo(),
+    handleRedo: () => engine?.redo(),
+    handleClear: () => engine?.clear()
   };
 }

@@ -1,0 +1,54 @@
+import React, { useRef, ReactNode, cloneElement } from 'react';
+import { useUIStore } from '../../store/useUIStore';
+
+interface TooltipProps {
+  content: ReactNode;
+  children: React.ReactElement;
+  delay?: number;
+}
+
+export function Tooltip({ content, children, delay = 300 }: TooltipProps) {
+  const { setTooltip, hideTooltip } = useUIStore();
+  const timerRef = useRef<NodeJS.Timeout>();
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.bottom;
+
+    timerRef.current = setTimeout(() => {
+      setTooltip(content, x, y);
+    }, delay);
+
+    if (children.props.onMouseEnter) {
+      children.props.onMouseEnter(e);
+    }
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    hideTooltip();
+    
+    if (children.props.onMouseLeave) {
+      children.props.onMouseLeave(e);
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+     if (timerRef.current) {
+       clearTimeout(timerRef.current);
+     }
+     hideTooltip();
+     if (children.props.onMouseDown) {
+       children.props.onMouseDown(e);
+     }
+  };
+
+  return cloneElement(children, {
+    onMouseEnter: handleMouseEnter,
+    onMouseLeave: handleMouseLeave,
+    onMouseDown: handleMouseDown,
+  });
+}

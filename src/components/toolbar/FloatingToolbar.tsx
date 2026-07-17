@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { IconButton } from "../common/IconButton";
+import { Tooltip } from "../common/Tooltip";
 import { cn } from "../../utils/cn";
 
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#9ca3af', '#000000'];
@@ -116,63 +117,79 @@ export function FloatingToolbar({
         
         {/* Tools */}
         <div className="flex items-center gap-1 mr-1">
-          <button 
-            onClick={() => handleToolClick('draw')}
-            className={cn(
-              "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
-              toolMode !== 'draw' && "opacity-50 hover:opacity-100"
-            )}
-            title="Brush & Color"
-          >
-            <div 
+          <Tooltip content="Brush & Color">
+            <button 
+              onClick={() => handleToolClick('draw')}
               className={cn(
-                "w-4 h-4 rounded-full border border-black/20 dark:border-white/50 transition-all duration-300",
-                toolMode === 'draw' ? "scale-125 shadow-sm" : ""
+                "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
+                toolMode !== 'draw' && "opacity-50 hover:opacity-100"
               )}
-              style={{ backgroundColor: color }} 
-            />
-            {toolMode === 'draw' && (
-              <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
-            )}
-          </button>
+            >
+              <div 
+                className={cn(
+                  "w-4 h-4 rounded-full border border-black/20 dark:border-white/50 transition-all duration-300",
+                  toolMode === 'draw' ? "scale-125 shadow-sm" : ""
+                )}
+                style={{ backgroundColor: color }} 
+              />
+              {toolMode === 'draw' && (
+                <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
+              )}
+            </button>
+          </Tooltip>
           
-          <button 
-            onClick={() => handleToolClick('erase')} 
-            className={cn(
-              "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
-              toolMode === 'erase' ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400 opacity-50 hover:opacity-100"
-            )}
-            title="Eraser"
-          >
-            <Eraser size={18} className={toolMode === 'erase' ? "scale-110 transition-transform" : "transition-transform"} />
-            {toolMode === 'erase' && (
-              <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
-            )}
-          </button>
+          <Tooltip content="Eraser">
+            <button 
+              onClick={() => handleToolClick('erase')} 
+              className={cn(
+                "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
+                toolMode === 'erase' ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400 opacity-50 hover:opacity-100"
+              )}
+            >
+              <Eraser size={18} className={toolMode === 'erase' ? "scale-110 transition-transform" : "transition-transform"} />
+              {toolMode === 'erase' && (
+                <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
+              )}
+            </button>
+          </Tooltip>
         </div>
 
         <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
 
         {/* Actions */}
-        <IconButton onClick={onUndo} disabled={!canUndo} title="Undo">
-          <Undo2 size={16} />
-        </IconButton>
-        <IconButton onClick={onRedo} disabled={!canRedo} title="Redo">
-          <Redo2 size={16} />
-        </IconButton>
+        <Tooltip content="Undo">
+          <div>
+            <IconButton onClick={onUndo} disabled={!canUndo}>
+              <Undo2 size={16} />
+            </IconButton>
+          </div>
+        </Tooltip>
+        <Tooltip content="Redo">
+          <div>
+            <IconButton onClick={onRedo} disabled={!canRedo}>
+              <Redo2 size={16} />
+            </IconButton>
+          </div>
+        </Tooltip>
 
         <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
 
         {/* IO Actions */}
-        <IconButton onClick={onCopy} title="Copy to Clipboard" className="hover:bg-blue-500/10 text-blue-500 dark:text-blue-400">
-          <Copy size={16} />
-        </IconButton>
-        <IconButton onClick={onExport} title="Export Image" className="hover:bg-green-500/10 text-green-500 dark:text-green-400">
-          <Save size={16} />
-        </IconButton>
-        <IconButton onClick={onDiscard} title="Discard" className="hover:bg-red-500/10 text-red-500 dark:text-red-400">
-          <XCircle size={16} />
-        </IconButton>
+        <Tooltip content="Copy to Clipboard">
+          <IconButton onClick={onCopy} className="hover:bg-blue-500/10 text-blue-500 dark:text-blue-400">
+            <Copy size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="Export Image">
+          <IconButton onClick={onExport} className="hover:bg-green-500/10 text-green-500 dark:text-green-400">
+            <Save size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="Discard">
+          <IconButton onClick={onDiscard} className="hover:bg-red-500/10 text-red-500 dark:text-red-400">
+            <XCircle size={16} />
+          </IconButton>
+        </Tooltip>
 
       </div>
     </div>

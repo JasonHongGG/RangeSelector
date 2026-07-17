@@ -35,8 +35,6 @@ export class CanvasEngine {
 
   private logicalImageWidth: number = 0;
   private logicalImageHeight: number = 0;
-  private logicalDocumentWidth: number = 0;
-  private logicalDocumentHeight: number = 0;
   private hasImageLoaded: boolean = false;
   private hasAutoFit: boolean = false;
 
@@ -135,8 +133,8 @@ export class CanvasEngine {
         
         this.logicalImageWidth = img.width / this.dpr;
         this.logicalImageHeight = img.height / this.dpr;
-        this.logicalDocumentWidth = physWidth / this.dpr;
-        this.logicalDocumentHeight = physHeight / this.dpr;
+
+        this.viewportManager.autoFit(this.logicalImageWidth, this.logicalImageHeight, DOCUMENT_PADDING);
         this.hasImageLoaded = true;
         this.tryAutoFit();
         

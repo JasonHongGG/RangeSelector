@@ -41,6 +41,10 @@ export function FloatingToolbar({
   }, []);
 
   const handleToolClick = (mode: 'draw' | 'erase') => {
+    if (isOcrModeActive) {
+      useOcrStore.getState().reset();
+    }
+    
     if (toolMode !== mode) {
       setToolMode(mode);
       setActivePopover(null);
@@ -48,6 +52,9 @@ export function FloatingToolbar({
       setActivePopover(activePopover === mode ? null : mode);
     }
   };
+
+  const isDrawActive = toolMode === 'draw' && !isOcrModeActive;
+  const isEraseActive = toolMode === 'erase' && !isOcrModeActive;
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center z-50 animate-slide-up" ref={toolbarRef}>
@@ -125,17 +132,17 @@ export function FloatingToolbar({
               onClick={() => handleToolClick('draw')}
               className={cn(
                 "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
-                toolMode !== 'draw' && "opacity-50 hover:opacity-100"
+                !isDrawActive && "opacity-50 hover:opacity-100"
               )}
             >
               <div 
                 className={cn(
                   "w-4 h-4 rounded-full border border-black/20 dark:border-white/50 transition-all duration-300",
-                  toolMode === 'draw' ? "scale-125 shadow-sm" : ""
+                  isDrawActive ? "scale-125 shadow-sm" : ""
                 )}
                 style={{ backgroundColor: color }} 
               />
-              {toolMode === 'draw' && (
+              {isDrawActive && (
                 <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
               )}
             </button>
@@ -146,11 +153,11 @@ export function FloatingToolbar({
               onClick={() => handleToolClick('erase')} 
               className={cn(
                 "w-8 h-8 rounded-md flex items-center justify-center transition-all hover:bg-black/5 dark:hover:bg-white/5 relative",
-                toolMode === 'erase' ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400 opacity-50 hover:opacity-100"
+                isEraseActive ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400 opacity-50 hover:opacity-100"
               )}
             >
-              <Eraser size={18} className={toolMode === 'erase' ? "scale-110 transition-transform" : "transition-transform"} />
-              {toolMode === 'erase' && (
+              <Eraser size={18} className={isEraseActive ? "scale-110 transition-transform" : "transition-transform"} />
+              {isEraseActive && (
                 <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-gray-800 dark:bg-white animate-fade-in" />
               )}
             </button>
@@ -189,7 +196,9 @@ export function FloatingToolbar({
                 }
               }} 
               className={cn(
-                isOcrModeActive ? "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20" : "hover:bg-blue-500/10 hover:text-blue-500"
+                isOcrModeActive 
+                  ? "bg-blue-500/15 dark:bg-blue-500/25 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.25)] hover:bg-blue-500/25" 
+                  : "hover:bg-blue-500/10 hover:text-blue-500 dark:text-gray-400"
               )}
             >
               {ocrStatus === 'recognizing' ? <Loader2 size={16} className="animate-spin" /> : <ScanText size={16} />}

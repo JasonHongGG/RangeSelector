@@ -2,23 +2,32 @@ import { useState, useEffect, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { CanvasEngine } from '../core/canvas/CanvasEngine';
 
-export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>) {
+export function useCanvasDrawing(
+  wrapperRef: RefObject<HTMLDivElement | null>,
+  mainCanvasRef: RefObject<HTMLCanvasElement | null>,
+  draftCanvasRef: RefObject<HTMLCanvasElement | null>
+) {
   const { color, brushSize, imageSrc, toolMode, isEditing } = useAppStore();
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
   useEffect(() => {
-    if (isEditing && canvasRef.current && !engine) {
-      const newEngine = new CanvasEngine(canvasRef.current, (undoable, redoable) => {
-        setCanUndo(undoable);
-        setCanRedo(redoable);
-      });
+    if (isEditing && wrapperRef.current && mainCanvasRef.current && draftCanvasRef.current && !engine) {
+      const newEngine = new CanvasEngine(
+        wrapperRef.current,
+        mainCanvasRef.current,
+        draftCanvasRef.current,
+        (undoable, redoable) => {
+          setCanUndo(undoable);
+          setCanRedo(redoable);
+        }
+      );
       setEngine(newEngine);
     } else if (!isEditing) {
       setEngine(null);
     }
-  }, [isEditing, canvasRef, engine]);
+  }, [isEditing, wrapperRef, mainCanvasRef, draftCanvasRef, engine]);
 
   useEffect(() => {
     if (engine && imageSrc) {
@@ -45,17 +54,33 @@ export function useCanvasDrawing(canvasRef: RefObject<HTMLCanvasElement | null>)
         }
       }
     };
+    
+    const handleWheel = (e: WheelEvent) => {
+      if (engine && e.ctrlKey) {
+        engine.getViewportManager().handleWheel(e);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [engine]);
+    if (wrapperRef.current && wrapperRef.current.parentElement) {
+      wrapperRef.current.parentElement.addEventListener('wheel', handleWheel, { passive: false });
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (wrapperRef.current && wrapperRef.current.parentElement) {
+        wrapperRef.current.parentElement.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [engine, wrapperRef]);
 
   return {
     engine,
     canUndo,
     canRedo,
-    startDrawing: (e: React.MouseEvent) => engine?.handleMouseDown(e),
-    draw: (e: React.MouseEvent) => engine?.handleMouseMove(e),
-    stopDrawing: () => engine?.handleMouseUpOrLeave(),
+    startDrawing: (e: React.PointerEvent) => engine?.handlePointerDown(e.nativeEvent),
+    draw: (e: React.PointerEvent) => engine?.handlePointerMove(e.nativeEvent),
+    stopDrawing: (e: React.PointerEvent) => engine?.handlePointerUpOrLeave(e.nativeEvent),
     handleUndo: () => engine?.undo(),
     handleRedo: () => engine?.redo(),
     handleClear: () => engine?.clear()

@@ -3,34 +3,51 @@ import { ToolAction } from './ToolAction';
 import { PenTool } from './PenTool';
 import { EraserTool } from './EraserTool';
 import { HistoryManager } from './HistoryManager';
+import { ViewportManager } from './ViewportManager';
 
 export class CanvasEngine {
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private mainCanvas: HTMLCanvasElement;
+  private draftCanvas: HTMLCanvasElement;
+  private wrapper: HTMLDivElement;
+  
+  private mainCtx: CanvasRenderingContext2D;
+  private draftCtx: CanvasRenderingContext2D;
+  
   private historyManager: HistoryManager;
+  private viewportManager: ViewportManager;
   
   private currentTool: ToolAction;
   private toolModes: Record<string, ToolAction>;
   
   private isDrawing: boolean = false;
-  private points: Point[] = [];
   
   private color: string = '#ef4444';
   private brushSize: number = 4;
 
-  constructor(canvas: HTMLCanvasElement, onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) throw new Error("Could not get 2d context");
-    this.ctx = ctx;
+  constructor(wrapper: HTMLDivElement, mainCanvas: HTMLCanvasElement, draftCanvas: HTMLCanvasElement, onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void) {
+    this.wrapper = wrapper;
+    this.mainCanvas = mainCanvas;
+    this.draftCanvas = draftCanvas;
+    
+    const mCtx = mainCanvas.getContext('2d', { willReadFrequently: true });
+    const dCtx = draftCanvas.getContext('2d');
+    if (!mCtx || !dCtx) throw new Error("Could not get 2d context");
+    
+    this.mainCtx = mCtx;
+    this.draftCtx = dCtx;
     
     this.historyManager = new HistoryManager(onHistoryChange);
+    this.viewportManager = new ViewportManager(wrapper, draftCanvas);
     
     this.toolModes = {
       'draw': new PenTool(),
       'erase': new EraserTool()
     };
     this.currentTool = this.toolModes['draw'];
+  }
+
+  public getViewportManager() {
+    return this.viewportManager;
   }
 
   public initImage(imageSrc: string): Promise<void> {
@@ -41,16 +58,31 @@ export class CanvasEngine {
         const PADDING = 150;
         const physPadding = Math.round(PADDING * dpr);
 
-        this.canvas.width = img.width + physPadding * 2;
-        this.canvas.height = img.height + physPadding * 2;
+        const physWidth = img.width + physPadding * 2;
+        const physHeight = img.height + physPadding * 2;
+        const cssWidth = (img.width / dpr) + PADDING * 2;
+        const cssHeight = (img.height / dpr) + PADDING * 2;
+
+        this.mainCanvas.width = physWidth;
+        this.mainCanvas.height = physHeight;
+        this.draftCanvas.width = physWidth;
+        this.draftCanvas.height = physHeight;
         
-        this.canvas.style.width = `${(img.width / dpr) + PADDING * 2}px`;
-        this.canvas.style.height = `${(img.height / dpr) + PADDING * 2}px`;
+        this.wrapper.style.width = `${cssWidth}px`;
+        this.wrapper.style.height = `${cssHeight}px`;
         
-        this.ctx.drawImage(img, physPadding, physPadding);
+        this.mainCtx.drawImage(img, physPadding, physPadding);
         
-        const baseData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+        const baseData = this.mainCtx.getImageData(0, 0, this.mainCanvas.width, this.mainCanvas.height);
         this.historyManager.reset(baseData);
+        
+        // Auto fit the canvas into the parent container
+        const container = this.wrapper.parentElement;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          this.viewportManager.autoFit(rect.width, rect.height, cssWidth, cssHeight);
+        }
+        
         resolve();
       };
       img.src = imageSrc;
@@ -72,70 +104,64 @@ export class CanvasEngine {
   }
 
   public undo() {
-    this.historyManager.undo(this.ctx);
+    this.historyManager.undo(this.mainCtx);
   }
 
   public redo() {
-    this.historyManager.redo(this.ctx);
+    this.historyManager.redo(this.mainCtx);
   }
 
   public clear() {
-    this.historyManager.clear(this.ctx, this.canvas.width, this.canvas.height);
+    this.historyManager.clear(this.mainCtx, this.mainCanvas.width, this.mainCanvas.height);
   }
 
-  private getCoordinates(e: React.MouseEvent | MouseEvent): Point {
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasWidth = this.canvas.width;
-    const canvasHeight = this.canvas.height;
-    
-    const canvasRatio = canvasWidth / canvasHeight;
-    const rectRatio = rect.width / rect.height;
-    
-    let renderedWidth = rect.width;
-    let renderedHeight = rect.height;
-    let offsetX = 0;
-    let offsetY = 0;
+  private getCoordinates(e: PointerEvent): Point {
+    return this.viewportManager.mapScreenToCanvas(e);
+  }
 
-    if (canvasRatio > rectRatio) {
-      renderedHeight = rect.width / canvasRatio;
-      offsetY = (rect.height - renderedHeight) / 2;
-    } else {
-      renderedWidth = rect.height * canvasRatio;
-      offsetX = (rect.width - renderedWidth) / 2;
+  private getToolContext() {
+    return {
+      mainCtx: this.mainCtx,
+      draftCtx: this.draftCtx,
+      color: this.color,
+      brushSize: this.brushSize,
+    };
+  }
+
+  public handlePointerDown = (e: PointerEvent) => {
+    if (this.viewportManager.handlePanStart(e)) {
+      return;
     }
-
-    const x = ((e.clientX - rect.left - offsetX) / renderedWidth) * canvasWidth;
-    const y = ((e.clientY - rect.top - offsetY) / renderedHeight) * canvasHeight;
-    return { x, y };
-  }
-
-  public handleMouseDown = (e: React.MouseEvent | MouseEvent) => {
+    
     this.isDrawing = true;
+    this.draftCanvas.setPointerCapture(e.pointerId);
     const point = this.getCoordinates(e);
-    this.points = [point];
-    this.currentTool.start(point, { ctx: this.ctx, color: this.color, brushSize: this.brushSize });
+    this.currentTool.onPointerDown(point, this.getToolContext(), e);
   };
 
-  public handleMouseMove = (e: React.MouseEvent | MouseEvent) => {
+  public handlePointerMove = (e: PointerEvent) => {
+    if (this.viewportManager.handlePanMove(e)) {
+      return;
+    }
+    
     if (!this.isDrawing) return;
     const point = this.getCoordinates(e);
-    this.points.push(point);
-    this.currentTool.draw(this.points, { ctx: this.ctx, color: this.color, brushSize: this.brushSize });
-    
-    // Keep only last 3 points for smoothing
-    if (this.points.length > 3) {
-      this.points = this.points.slice(-3);
-    }
+    this.currentTool.onPointerMove(point, this.getToolContext(), e);
   };
 
-  public handleMouseUpOrLeave = () => {
+  public handlePointerUpOrLeave = (e: PointerEvent) => {
+    if (this.viewportManager.handlePanEnd()) {
+      return;
+    }
+    
     if (!this.isDrawing) return;
     this.isDrawing = false;
-    this.currentTool.end({ ctx: this.ctx, color: this.color, brushSize: this.brushSize });
-    this.points = [];
+    this.draftCanvas.releasePointerCapture(e.pointerId);
+    const point = this.getCoordinates(e);
+    this.currentTool.onPointerUp(point, this.getToolContext(), e);
     
     // Save to history
-    const newData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    const newData = this.mainCtx.getImageData(0, 0, this.mainCanvas.width, this.mainCanvas.height);
     this.historyManager.push(newData);
   };
 }

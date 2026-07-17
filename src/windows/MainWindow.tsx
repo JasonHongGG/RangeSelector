@@ -16,7 +16,9 @@ import { Tooltip } from "../components/common/Tooltip";
 export function MainWindow() {
   const { isEditing, setIsEditing, setImageSrc } = useAppStore();
   const showNotification = useUIStore(state => state.showNotification);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const mainCanvasRef = useRef<HTMLCanvasElement>(null);
+  const draftCanvasRef = useRef<HTMLCanvasElement>(null);
   
   const { 
     canUndo, 
@@ -27,7 +29,7 @@ export function MainWindow() {
     draw, 
     stopDrawing,
     handleClear
-  } = useCanvasDrawing(canvasRef);
+  } = useCanvasDrawing(wrapperRef, mainCanvasRef, draftCanvasRef);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,9 +83,9 @@ export function MainWindow() {
   };
 
   const copyToClipboard = async () => {
-    if (canvasRef.current) {
+    if (mainCanvasRef.current) {
       try {
-        const canvas = getCroppedCanvas(canvasRef.current);
+        const canvas = getCroppedCanvas(mainCanvasRef.current);
         await ClipboardService.copyCanvasToClipboard(canvas);
         showNotification('success', 'Image copied to clipboard');
       } catch (e) {
@@ -94,9 +96,9 @@ export function MainWindow() {
   };
 
   const exportImage = async () => {
-    if (canvasRef.current) {
+    if (mainCanvasRef.current) {
       try {
-        const canvas = getCroppedCanvas(canvasRef.current);
+        const canvas = getCroppedCanvas(mainCanvasRef.current);
         await ClipboardService.exportCanvas(canvas);
         showNotification('success', 'Image exported successfully');
       } catch (e) {
@@ -143,15 +145,30 @@ export function MainWindow() {
           </div>
         ) : (
           <div className="flex flex-col w-full h-full min-h-0 animate-scale-in p-4">
-            <div className="flex-1 rounded-lg border border-black/5 dark:border-white/5 bg-gray-100 dark:bg-black/40 shadow-inner flex items-center justify-center overflow-hidden relative cursor-crosshair group">
-              <canvas
-                ref={canvasRef}
-                className="max-w-full max-h-full object-contain drop-shadow-2xl transition-transform duration-300"
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-              />
+            <div className="flex-1 rounded-lg border border-black/5 dark:border-white/5 bg-gray-100 dark:bg-black/40 shadow-inner overflow-hidden relative cursor-crosshair group">
+              
+              {/* Canvas Wrapper for Viewport Transform */}
+              <div 
+                ref={wrapperRef}
+                className="absolute origin-top-left touch-none"
+              >
+                {/* Main Canvas: Holds confirmed strokes */}
+                <canvas
+                  ref={mainCanvasRef}
+                  className="absolute inset-0 pointer-events-none drop-shadow-2xl"
+                />
+                {/* Draft Canvas: Interactive layer for preview strokes */}
+                <canvas
+                  ref={draftCanvasRef}
+                  className="absolute inset-0 touch-none"
+                  onPointerDown={startDrawing}
+                  onPointerMove={draw}
+                  onPointerUp={stopDrawing}
+                  onPointerCancel={stopDrawing}
+                  onContextMenu={(e) => e.preventDefault()}
+                />
+              </div>
+
               <FloatingToolbar 
                 onUndo={handleUndo}
                 onRedo={handleRedo}

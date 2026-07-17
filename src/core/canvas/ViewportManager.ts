@@ -27,6 +27,22 @@ export class ViewportManager {
     return this.containerWidth;
   }
 
+  public getContainerHeight(): number {
+    return this.containerHeight;
+  }
+
+  public getZoom(): number {
+    return this.zoom;
+  }
+
+  public getCameraX(): number {
+    return this.cameraX;
+  }
+
+  public getCameraY(): number {
+    return this.cameraY;
+  }
+
   public resize(width: number, height: number) {
     this.containerWidth = width;
     this.containerHeight = height;
@@ -55,10 +71,14 @@ export class ViewportManager {
     this.onChange();
   }
 
-  public applyToContext(ctx: CanvasRenderingContext2D) {
-    ctx.translate(this.containerWidth / 2, this.containerHeight / 2);
-    ctx.scale(this.zoom, this.zoom);
-    ctx.translate(-this.cameraX, -this.cameraY);
+  public applyToContext(ctx: CanvasRenderingContext2D, dpr: number = 1) {
+    // Snap translation to exact physical pixels to prevent sub-pixel blurriness!
+    // This is the mathematical key to ensuring 1:1 crisp images in HTML Canvas.
+    const offsetX = Math.round((this.containerWidth / 2 - this.cameraX) * this.zoom * dpr);
+    const offsetY = Math.round((this.containerHeight / 2 - this.cameraY) * this.zoom * dpr);
+    
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(this.zoom * dpr, this.zoom * dpr);
   }
 
   public mapScreenToDocument(screenX: number, screenY: number): Point {

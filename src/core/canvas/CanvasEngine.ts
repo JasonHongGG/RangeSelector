@@ -150,10 +150,16 @@ export class CanvasEngine {
     this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
     
     this.mainCtx.save();
-    this.mainCtx.scale(this.dpr, this.dpr);
-    this.viewportManager.applyToContext(this.mainCtx);
     
-    this.mainCtx.drawImage(this.documentCanvas, 0, 0, this.logicalDocumentWidth, this.logicalDocumentHeight);
+    // Disable smoothing if zooming in or at 100% to keep pixels crisp.
+    // Enable smoothing if zooming out to prevent aliasing.
+    this.mainCtx.imageSmoothingEnabled = this.viewportManager.getZoom() < 1.0;
+    
+    this.viewportManager.applyToContext(this.mainCtx, this.dpr);
+    
+    // documentCanvas is already in physical pixels, so reverse the DPR scale to draw it 1:1
+    this.mainCtx.scale(1 / this.dpr, 1 / this.dpr);
+    this.mainCtx.drawImage(this.documentCanvas, 0, 0);
     this.mainCtx.restore();
   }
 
@@ -229,8 +235,7 @@ export class CanvasEngine {
     this.draftCanvas.setPointerCapture(e.pointerId);
     
     this.draftCtx.save();
-    this.draftCtx.scale(this.dpr, this.dpr);
-    this.viewportManager.applyToContext(this.draftCtx);
+    this.viewportManager.applyToContext(this.draftCtx, this.dpr);
     
     const point = this.getDocumentCoordinates(e);
     this.currentTool.onPointerDown(point, this.getToolContext(), e);
@@ -252,8 +257,7 @@ export class CanvasEngine {
     this.draftCtx.clearRect(0, 0, this.draftCanvas.width, this.draftCanvas.height);
     
     this.draftCtx.save();
-    this.draftCtx.scale(this.dpr, this.dpr);
-    this.viewportManager.applyToContext(this.draftCtx);
+    this.viewportManager.applyToContext(this.draftCtx, this.dpr);
     
     const point = this.getDocumentCoordinates(e);
     this.currentTool.onPointerMove(point, this.getToolContext(), e);

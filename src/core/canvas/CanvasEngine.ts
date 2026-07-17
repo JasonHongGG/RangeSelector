@@ -64,6 +64,11 @@ export class CanvasEngine {
     });
     if (this.wrapper.parentElement) {
       this.resizeObserver.observe(this.wrapper.parentElement);
+      // Synchronously initialize the size to prevent 0-size race condition in autoFit
+      const rect = this.wrapper.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        this.updateScreenResolution(rect.width, rect.height);
+      }
     }
   }
 

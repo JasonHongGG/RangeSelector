@@ -28,14 +28,17 @@ export class ViewportManager {
   }
 
   public autoFit(imageWidth: number, imageHeight: number, padding: number) {
-    const targetWidth = this.containerWidth * 0.9;
-    const targetHeight = this.containerHeight * 0.9;
+    // 100% edge-to-edge fit, exactly like Snipping Tool
+    const targetWidth = this.containerWidth;
+    const targetHeight = this.containerHeight;
     
     if (imageWidth === 0 || imageHeight === 0) return;
 
     const scaleX = targetWidth / imageWidth;
     const scaleY = targetHeight / imageHeight;
-    this.zoom = Math.min(scaleX, scaleY, 1);
+    
+    // Calculate the exact scale needed to touch the edges (no arbitrary caps)
+    this.zoom = Math.min(scaleX, scaleY);
     
     // Center of the document (image + padding)
     this.cameraX = (imageWidth + padding * 2) / 2;

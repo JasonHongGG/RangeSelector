@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useOcrStore } from '../../store/useOcrStore';
 import { ViewportManager } from '../../core/canvas/ViewportManager';
 import { DOCUMENT_PADDING } from '../../core/canvas/CanvasEngine';
@@ -7,10 +7,19 @@ interface OcrOverlayProps {
   viewportManager: ViewportManager | null;
 }
 
+interface CharBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text: string;
+}
+
 export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { isOcrModeActive, result, status } = useOcrStore();
   const dpr = window.devicePixelRatio || 1;
+  const [highlightRects, setHighlightRects] = useState<CharBounds[]>([]);
 
   useEffect(() => {
     if (overlayRef.current && viewportManager) {
@@ -23,90 +32,230 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
     };
   }, [viewportManager, isOcrModeActive, result, status]);
 
-  if (!isOcrModeActive || !result || status !== 'done') {
-    return null;
-  }
+  // Pre-calculate DOM text strings and 1-to-1 character bounding boxes
+  const linesData = useMemo(() => {
+    if (!result || status !== 'done') return [];
+    
+    return [...result.lines]
+      .sort((a, b) => {
+        const yTolerance = Math.min(a.height, b.height) * 0.5;
+        if (Math.abs(a.y - b.y) < yTolerance) return a.x - b.x;
+        return a.y - b.y;
+      })
+      .map(line => {
+        let text = "";
+        const charBounds: CharBounds[] = [];
+        const sortedWords = [...line.words].sort((a, b) => a.x - b.x);
+        
+        const lineY = (line.y / dpr) + DOCUMENT_PADDING;
+        const lineH = line.height / dpr;
+
+        sortedWords.forEach((word, idx) => {
+          const prevWord = idx > 0 ? sortedWords[idx - 1] : null;
+          if (prevWord) {
+            const gap = word.x - (prevWord.x + prevWord.width);
+            const avgCharWidth = (prevWord.width / prevWord.text.length + word.width / word.text.length) / 2;
+            if (gap > avgCharWidth * 0.5) {
+              text += " ";
+              charBounds.push({
+                x: (prevWord.x + prevWord.width) / dpr + DOCUMENT_PADDING,
+                y: lineY - 2, // padY
+                w: gap / dpr,
+                h: lineH + 4, // padY * 2
+                text: " "
+              });
+            }
+          }
+          
+          const wordText = word.text;
+          text += wordText;
+          const charW = word.width / wordText.length;
+          for (let i = 0; i < wordText.length; i++) {
+            charBounds.push({
+              x: (word.x + i * charW) / dpr + DOCUMENT_PADDING,
+              y: lineY - 2,
+              w: charW / dpr,
+              h: lineH + 4,
+              text: wordText[i]
+            });
+          }
+        });
+        
+        return {
+          logicalX: (line.x / dpr) + DOCUMENT_PADDING,
+          logicalY: lineY,
+          logicalW: line.width / dpr,
+          logicalH: lineH,
+          text,
+          charBounds
+        };
+      });
+  }, [result, status, dpr]);
+
+  // Custom Selection Engine
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !overlayRef.current) {
+        setHighlightRects([]);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      
+      // If selection doesn't touch our overlay at all, ignore it.
+      // This allows the user to start dragging from outside the overlay!
+      if (!range.intersectsNode(overlayRef.current)) return;
+
+      const selectedChars: { lineIdx: number, charIdx: number }[] = [];
+      const charNodes = overlayRef.current.querySelectorAll('.ocr-char');
+      
+      charNodes.forEach((node) => {
+        if (!range.intersectsNode(node)) return;
+        
+        // Exclude nodes where the selection ends exactly at their start (0 characters selected from this node)
+        if (range.endContainer === node.firstChild && range.endOffset === 0) return;
+        if (range.endContainer === node && range.endOffset === 0) return;
+        
+        // Exclude nodes where the selection starts exactly at their end
+        if (range.startContainer === node.firstChild && range.startOffset === node.textContent?.length) return;
+
+        const lineIdxStr = node.getAttribute('data-line-idx');
+        const charIdxStr = node.getAttribute('data-char-idx');
+        if (lineIdxStr && charIdxStr) {
+          selectedChars.push({ 
+            lineIdx: parseInt(lineIdxStr, 10), 
+            charIdx: parseInt(charIdxStr, 10) 
+          });
+        }
+      });
+
+      const lineMap = new Map<number, number[]>();
+      selectedChars.forEach(({ lineIdx, charIdx }) => {
+        if (!lineMap.has(lineIdx)) lineMap.set(lineIdx, []);
+        lineMap.get(lineIdx)!.push(charIdx);
+      });
+      
+      const rects: CharBounds[] = [];
+      lineMap.forEach((charIndices, lineIdx) => {
+        const lineData = linesData[lineIdx];
+        if (!lineData) return;
+        
+        charIndices.sort((a, b) => a - b);
+        
+        let currentRect: CharBounds | null = null;
+        for (const i of charIndices) {
+          const bounds = lineData.charBounds[i];
+          if (!bounds) continue;
+          
+          if (!currentRect) {
+            currentRect = { ...bounds };
+          } else {
+            const gap = bounds.x - (currentRect.x + currentRect.w);
+            if (gap > bounds.w * 2) {
+              rects.push({ ...currentRect });
+              currentRect = { ...bounds };
+            } else {
+              const newRight = Math.max(currentRect.x + currentRect.w, bounds.x + bounds.w);
+              currentRect.w = newRight - currentRect.x;
+              currentRect.y = Math.min(currentRect.y, bounds.y);
+              currentRect.h = Math.max(currentRect.y + currentRect.h, bounds.y + bounds.h) - currentRect.y;
+            }
+          }
+        }
+        if (currentRect) rects.push(currentRect);
+      });
+      
+      setHighlightRects(rects);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [linesData]);
+
+  if (!isOcrModeActive || !result || status !== 'done') return null;
 
   return (
     <div 
       ref={overlayRef}
       className="absolute top-0 left-0 pointer-events-auto"
-      style={{
-        width: 0,
-        height: 0,
-        willChange: 'transform',
-      }}
+      style={{ width: 0, height: 0, willChange: 'transform' }}
     >
-      {[...result.lines]
-        .sort((a, b) => {
-          // Sort top-to-bottom, grouping elements on the same visual line (using 50% height tolerance)
-          const yTolerance = Math.min(a.height, b.height) * 0.5;
-          if (Math.abs(a.y - b.y) < yTolerance) {
-            return a.x - b.x; // Sort left-to-right if on the same line
-          }
-          return a.y - b.y;
-        })
-        .map((line, lineIdx, sortedLinesArray) => {
-        const logicalX = (line.x / dpr) + DOCUMENT_PADDING;
-        const logicalY = (line.y / dpr) + DOCUMENT_PADDING;
-        const logicalW = line.width / dpr;
-        const logicalH = line.height / dpr;
-        
-        // Add subtle padding to make the text block look like Snipping Tool
-        const padX = 4;
-        const padY = 2;
-
-        return (
+      {/* 1. Custom Highlight Layer (Pointer events NONE) */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+        {highlightRects.map((rect, i) => (
           <div
-            key={lineIdx}
-            className="absolute rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-text"
+            key={`hi-${i}`}
+            className="absolute bg-blue-500/40 rounded-sm"
             style={{
-              left: `${logicalX - padX}px`,
-              top: `${logicalY - padY}px`,
-              width: `${logicalW + padX * 2}px`,
-              height: `${logicalH + padY * 2}px`,
+              left: `${rect.x}px`,
+              top: `${rect.y}px`,
+              width: `${rect.w}px`,
+              height: `${rect.h}px`,
             }}
-            title={line.text}
-          >
-            <div className="w-full h-full relative">
-              {[...line.words].sort((a, b) => a.x - b.x).map((word, wordIdx, sortedWordsArray) => {
-                const isFirst = wordIdx === 0;
-                const isLast = wordIdx === sortedWordsArray.length - 1;
-                
-                const relX = (word.x - line.x) / dpr;
-                const nextWord = sortedWordsArray[wordIdx + 1];
-                const nextRelX = nextWord ? (nextWord.x - line.x) / dpr : logicalW;
-                
-                // Expand the first and last words to fill the padding area
-                const spanLeft = isFirst ? 0 : relX + padX;
-                const spanRight = isLast ? logicalW + padX * 2 : nextRelX + padX;
-                const spanWidth = spanRight - spanLeft;
-                const spanHeight = logicalH + padY * 2;
-                
-                return (
-                  <span
-                    key={wordIdx}
-                    className="absolute whitespace-pre select-text pointer-events-auto selection:bg-blue-500/40 selection:text-transparent"
-                    style={{
-                      left: `${spanLeft}px`,
-                      top: 0,
-                      width: `${spanWidth}px`,
-                      height: `100%`,
-                      color: 'transparent',
-                      fontSize: `${Math.max(logicalH * 0.8, 12)}px`,
-                      lineHeight: `${spanHeight}px`,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {word.text}
-                  </span>
-                );
-              })}
+          />
+        ))}
+      </div>
+
+      {/* 2. Invisible DOM Text Layer (Pointer events AUTO) */}
+      <div className="absolute top-0 left-0 w-full h-full z-20">
+        {linesData.map((line, lineIdx) => {
+          const padX = 4;
+          const padY = 2;
+
+          return (
+            <div
+              key={lineIdx}
+              className="absolute rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-text"
+              style={{
+                left: `${line.logicalX - padX}px`,
+                top: `${line.logicalY - padY}px`,
+                width: `${line.logicalW + padX * 2}px`,
+                height: `${line.logicalH + padY * 2}px`,
+              }}
+              title={line.text}
+            >
+              <div 
+                className="w-full h-full relative"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {(() => {
+                  let currentX = 0;
+                  return line.charBounds.map((bounds, charIdx) => {
+                    const isFirst = charIdx === 0;
+                    const isLast = charIdx === line.charBounds.length - 1;
+                    
+                    const spanLeft = isFirst ? 0 : currentX;
+                    const expectedRight = isLast ? (line.logicalW + padX * 2) : (line.charBounds[charIdx + 1].x - line.logicalX + padX);
+                    const spanWidth = Math.max(0, expectedRight - spanLeft);
+                    
+                    currentX = spanLeft + spanWidth;
+
+                    return (
+                      <span
+                        key={charIdx}
+                        data-line-idx={lineIdx}
+                        data-char-idx={charIdx}
+                        className="ocr-char inline-block select-text pointer-events-auto selection:bg-transparent selection:text-transparent"
+                        style={{
+                          width: `${spanWidth}px`,
+                          height: '100%',
+                          color: 'transparent',
+                          fontSize: `${Math.max(line.logicalH * 0.8, 12)}px`,
+                          lineHeight: `${line.logicalH + padY * 2}px`,
+                          overflow: 'hidden',
+                          verticalAlign: 'top',
+                        }}
+                      >
+                        {bounds.text}
+                      </span>
+                    );
+                  });
+                })()}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

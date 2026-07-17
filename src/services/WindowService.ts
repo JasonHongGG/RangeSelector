@@ -12,6 +12,15 @@ export class WindowService {
     await appWindow.close();
   }
 
+  static async setupCloseHandler(): Promise<() => void> {
+    const appWindow = getCurrentWindow();
+    const unlisten = await appWindow.onCloseRequested((event) => {
+      event.preventDefault();
+      appWindow.hide();
+    });
+    return unlisten;
+  }
+
   static async setCompactMode(): Promise<void> {
     try {
       const appWindow = getCurrentWindow();

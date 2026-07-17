@@ -36,6 +36,7 @@ export function MainWindow() {
     let isMounted = true;
     let unlistenCrop: (() => void) | undefined;
     let unlistenLoad: (() => void) | undefined;
+    let unlistenClose: (() => void) | undefined;
     
     const setup = async () => {
       const uCrop = await CaptureService.onCropResult(async (dataUrl) => {
@@ -56,6 +57,10 @@ export function MainWindow() {
       });
       if (!isMounted) uLoad();
       else unlistenLoad = uLoad;
+      
+      const unlistenCloseEvent = await WindowService.setupCloseHandler();
+      if (!isMounted) unlistenCloseEvent();
+      else unlistenClose = unlistenCloseEvent;
     };
     setup();
 
@@ -63,6 +68,7 @@ export function MainWindow() {
       isMounted = false;
       if (unlistenCrop) unlistenCrop();
       if (unlistenLoad) unlistenLoad();
+      if (unlistenClose) unlistenClose();
     };
   }, [setImageSrc, setIsEditing]);
 

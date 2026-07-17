@@ -12,6 +12,8 @@ export class ViewportManager {
   private lastPanX: number = 0;
   private lastPanY: number = 0;
   
+  private overlayElements: HTMLElement[] = [];
+  
   private readonly minZoom = 0.1;
   private readonly maxZoom = 10;
   
@@ -24,6 +26,7 @@ export class ViewportManager {
   public resize(width: number, height: number) {
     this.containerWidth = width;
     this.containerHeight = height;
+    this.syncOverlays();
     this.onChange();
   }
 
@@ -44,6 +47,7 @@ export class ViewportManager {
     this.cameraX = (imageWidth + padding * 2) / 2;
     this.cameraY = (imageHeight + padding * 2) / 2;
     
+    this.syncOverlays();
     this.onChange();
   }
 
@@ -78,6 +82,7 @@ export class ViewportManager {
     this.cameraX += pointBefore.x - pointAfter.x;
     this.cameraY += pointBefore.y - pointAfter.y;
     
+    this.syncOverlays();
     this.onChange();
   }
 
@@ -99,6 +104,7 @@ export class ViewportManager {
     this.lastPanX = screenX;
     this.lastPanY = screenY;
     
+    this.syncOverlays();
     this.onChange();
     return true;
   }
@@ -109,6 +115,24 @@ export class ViewportManager {
       return true;
     }
     return false;
+  }
+
+  public registerOverlay(element: HTMLElement) {
+    if (!this.overlayElements.includes(element)) {
+      this.overlayElements.push(element);
+      this.syncOverlays();
+    }
+  }
+
+  public unregisterOverlay(element: HTMLElement) {
+    this.overlayElements = this.overlayElements.filter(el => el !== element);
+  }
+
+  public syncOverlays() {
+    for (const el of this.overlayElements) {
+      el.style.transformOrigin = '0 0';
+      el.style.transform = `translate(${this.containerWidth / 2}px, ${this.containerHeight / 2}px) scale(${this.zoom}) translate(${-this.cameraX}px, ${-this.cameraY}px)`;
+    }
   }
 }
 

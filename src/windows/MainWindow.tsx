@@ -9,6 +9,7 @@ import { HistoryService } from "../services/HistoryService";
 import { ClipboardService } from "../services/ClipboardService";
 import { IconButton } from "../components/common/IconButton";
 import { FloatingToolbar } from "../components/toolbar/FloatingToolbar";
+import { OcrOverlay } from "../components/canvas/OcrOverlay";
 import { getCroppedCanvas } from "../utils/canvasUtils";
 import { useUIStore } from "../store/useUIStore";
 import { Tooltip } from "../components/common/Tooltip";
@@ -29,7 +30,8 @@ export function MainWindow() {
     draw, 
     stopDrawing,
     handleClear,
-    getDocumentCanvas
+    getDocumentCanvas,
+    viewportManager
   } = useCanvasDrawing(wrapperRef, mainCanvasRef, draftCanvasRef);
 
   useEffect(() => {
@@ -177,6 +179,8 @@ export function MainWindow() {
                   onContextMenu={(e) => e.preventDefault()}
                 />
               </div>
+
+              <OcrOverlay viewportManager={viewportManager} />
 
               <FloatingToolbar 
                 onUndo={handleUndo}

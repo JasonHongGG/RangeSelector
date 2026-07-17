@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { 
-  Undo2, Redo2, Copy, Save, XCircle, Eraser, Trash2
+  Undo2, Redo2, Copy, Save, XCircle, Eraser, Trash2, ScanText, Loader2
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { useOcrStore } from "../../store/useOcrStore";
+import { OcrService } from "../../services/OcrService";
 import { IconButton } from "../common/IconButton";
 import { Tooltip } from "../common/Tooltip";
 import { cn } from "../../utils/cn";
@@ -24,6 +26,7 @@ export function FloatingToolbar({
   onUndo, onRedo, onClear, onCopy, onExport, onDiscard, canUndo, canRedo
 }: FloatingToolbarProps) {
   const { toolMode, setToolMode, brushSize, setBrushSize, color, setColor } = useAppStore();
+  const { status: ocrStatus, isOcrModeActive } = useOcrStore();
   const [activePopover, setActivePopover] = useState<'draw' | 'erase' | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +171,28 @@ export function FloatingToolbar({
           <div>
             <IconButton onClick={onRedo} disabled={!canRedo}>
               <Redo2 size={16} />
+            </IconButton>
+          </div>
+        </Tooltip>
+
+        <div className="w-px h-6 bg-black/10 dark:bg-white/10 mx-1" />
+
+        {/* OCR Action */}
+        <Tooltip content={isOcrModeActive ? "Turn off OCR" : "Recognize Text"}>
+          <div>
+            <IconButton 
+              onClick={() => {
+                if (isOcrModeActive) {
+                  useOcrStore.getState().reset();
+                } else {
+                  OcrService.recognizeText();
+                }
+              }} 
+              className={cn(
+                isOcrModeActive ? "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20" : "hover:bg-blue-500/10 hover:text-blue-500"
+              )}
+            >
+              {ocrStatus === 'recognizing' ? <Loader2 size={16} className="animate-spin" /> : <ScanText size={16} />}
             </IconButton>
           </div>
         </Tooltip>

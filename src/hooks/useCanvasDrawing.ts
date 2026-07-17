@@ -80,6 +80,7 @@ export function useCanvasDrawing(
 
   return {
     engine,
+    viewportManager: engine?.getViewportManager() || null,
     canUndo,
     canRedo,
     startDrawing: (e: React.PointerEvent) => engine?.handlePointerDown(e.nativeEvent),

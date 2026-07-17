@@ -5,6 +5,8 @@ import { EraserTool } from './EraserTool';
 import { HistoryManager } from './HistoryManager';
 import { ViewportManager } from './ViewportManager';
 
+export const DOCUMENT_PADDING = 150;
+
 export class CanvasEngine {
   private mainCanvas: HTMLCanvasElement;
   private draftCanvas: HTMLCanvasElement;
@@ -95,8 +97,7 @@ export class CanvasEngine {
     return new Promise((resolve) => {
       const img = new globalThis.Image();
       img.onload = () => {
-        const PADDING = 150;
-        const physPadding = Math.round(PADDING * this.dpr);
+        const physPadding = Math.round(DOCUMENT_PADDING * this.dpr);
 
         const physWidth = img.width + physPadding * 2;
         const physHeight = img.height + physPadding * 2;
@@ -110,7 +111,7 @@ export class CanvasEngine {
         const baseData = this.documentCtx.getImageData(0, 0, physWidth, physHeight);
         this.historyManager.reset(baseData);
         
-        this.viewportManager.autoFit(img.width, img.height, physPadding);
+        this.viewportManager.autoFit(img.width, img.height, DOCUMENT_PADDING);
         
         resolve();
       };

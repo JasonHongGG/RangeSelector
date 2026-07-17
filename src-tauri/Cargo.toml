@@ -29,5 +29,5 @@ xcap = "0.9.6"
 image = { version = "0.25.10", features = ["jpeg"] }
 base64 = "0.22.1"
 chrono = "0.4.45"
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Media_Ocr", "Graphics_Imaging", "Storage_Streams", "Foundation"] }
 

@@ -70,7 +70,8 @@ pub fn run() {
             commands::history_cmd::save_history,
             commands::history_cmd::get_history_list,
             commands::history_cmd::read_history_image,
-            commands::history_cmd::delete_history
+            commands::history_cmd::delete_history,
+            commands::ocr_cmd::recognize_text
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

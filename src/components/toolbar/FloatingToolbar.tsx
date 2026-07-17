@@ -7,6 +7,7 @@ import { useOcrStore } from "../../store/useOcrStore";
 import { OcrService } from "../../services/OcrService";
 import { IconButton } from "../common/IconButton";
 import { Tooltip } from "../common/Tooltip";
+import { Slider } from "../common/Slider";
 import { cn } from "../../utils/cn";
 
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#9ca3af', '#000000'];
@@ -69,7 +70,7 @@ export function FloatingToolbar({
                   key={c}
                   className={cn(
                     "w-6 h-6 rounded-full transition-all duration-300",
-                    color === c ? "scale-110 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : "hover:scale-110 hover:ring-1 ring-black/20 dark:ring-white/50"
+                    color === c ? "scale-110 ring-2 ring-gray-900 dark:ring-white ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : "hover:scale-110 hover:ring-1 ring-black/20 dark:ring-white/50"
                   )}
                   style={{ backgroundColor: c }}
                   onClick={() => setColor(c)}
@@ -81,12 +82,10 @@ export function FloatingToolbar({
                 <span className="text-xs text-gray-500 dark:text-white/50 font-medium">Brush Size</span>
                 <span className="text-xs text-gray-900 dark:text-white/90 font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">{brushSize}px</span>
               </div>
-              <input 
-                type="range" 
+              <Slider 
                 min="1" max="30" 
                 value={brushSize} 
                 onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full custom-slider"
               />
             </div>
           </div>
@@ -99,12 +98,10 @@ export function FloatingToolbar({
                 <span className="text-xs text-gray-500 dark:text-white/50 font-medium">Eraser Size</span>
                 <span className="text-xs text-gray-900 dark:text-white/90 font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded">{brushSize}px</span>
               </div>
-              <input 
-                type="range" 
+              <Slider 
                 min="1" max="50" 
                 value={brushSize} 
                 onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full custom-slider"
               />
             </div>
             <div className="w-full h-px bg-black/10 dark:bg-white/10" />

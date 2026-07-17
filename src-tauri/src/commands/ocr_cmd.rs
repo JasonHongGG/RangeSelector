@@ -15,8 +15,18 @@ pub struct OcrWord {
 }
 
 #[derive(Serialize)]
-pub struct OcrResponse {
+pub struct OcrLine {
+    text: String,
     words: Vec<OcrWord>,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Serialize)]
+pub struct OcrResponse {
+    lines: Vec<OcrLine>,
     text: String,
 }
 
@@ -49,28 +59,59 @@ pub async fn recognize_text(base64_image: String) -> Result<OcrResponse, String>
     let engine = OcrEngine::TryCreateFromUserProfileLanguages().map_err(|e| e.to_string())?;
     let result = engine.RecognizeAsync(&bitmap).map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
 
-    // 5. Extract words
-    let mut words_list = Vec::new();
+    // 5. Extract lines and words
+    let mut lines_list = Vec::new();
     let lines = result.Lines().map_err(|e| e.to_string())?;
     for line in lines {
+        let text = line.Text().map_err(|e| e.to_string())?.to_string_lossy();
         let words = line.Words().map_err(|e| e.to_string())?;
+        
+        let mut line_words = Vec::new();
+        let mut min_x = f64::MAX;
+        let mut min_y = f64::MAX;
+        let mut max_x = f64::MIN;
+        let mut max_y = f64::MIN;
+
         for word in words {
-            let text = word.Text().map_err(|e| e.to_string())?.to_string_lossy();
+            let w_text = word.Text().map_err(|e| e.to_string())?.to_string_lossy();
             let rect = word.BoundingRect().map_err(|e| e.to_string())?;
-            words_list.push(OcrWord {
-                text,
-                x: rect.X as f64,
-                y: rect.Y as f64,
-                width: rect.Width as f64,
-                height: rect.Height as f64,
+            let x = rect.X as f64;
+            let y = rect.Y as f64;
+            let w = rect.Width as f64;
+            let h = rect.Height as f64;
+            
+            min_x = f64::min(min_x, x);
+            min_y = f64::min(min_y, y);
+            max_x = f64::max(max_x, x + w);
+            max_y = f64::max(max_y, y + h);
+
+            line_words.push(OcrWord {
+                text: w_text,
+                x,
+                y,
+                width: w,
+                height: h,
             });
         }
+
+        if line_words.is_empty() {
+            continue;
+        }
+
+        lines_list.push(OcrLine {
+            text,
+            words: line_words,
+            x: min_x,
+            y: min_y,
+            width: max_x - min_x,
+            height: max_y - min_y,
+        });
     }
 
     let full_text = result.Text().map_err(|e| e.to_string())?.to_string_lossy();
 
     Ok(OcrResponse {
-        words: words_list,
+        lines: lines_list,
         text: full_text,
     })
 }

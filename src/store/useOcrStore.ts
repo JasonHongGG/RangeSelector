@@ -8,8 +8,17 @@ export interface OcrWord {
   height: number;
 }
 
-export interface OcrResponse {
+export interface OcrLine {
+  text: string;
   words: OcrWord[];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OcrResponse {
+  lines: OcrLine[];
   text: string;
 }
 

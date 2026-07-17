@@ -18,10 +18,10 @@ export class OcrService {
       const result = await invoke<OcrResponse>('recognize_text', { base64Image: imageSrc });
       store.setResult(result);
       store.setStatus('done');
-      if (result.words.length === 0) {
+      if (result.lines.length === 0) {
         useUIStore.getState().showNotification('info', 'No text found in image');
       } else {
-        useUIStore.getState().showNotification('success', `OCR Complete: found ${result.words.length} words`);
+        useUIStore.getState().showNotification('success', `OCR Complete: found ${result.lines.length} lines`);
       }
     } catch (e: any) {
       console.error('OCR Error:', e);

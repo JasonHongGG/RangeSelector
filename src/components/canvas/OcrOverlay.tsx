@@ -37,32 +37,61 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
         willChange: 'transform',
       }}
     >
-      {result.words.map((word, index) => {
-        const logicalX = (word.x / dpr) + DOCUMENT_PADDING;
-        const logicalY = (word.y / dpr) + DOCUMENT_PADDING;
-        const logicalW = word.width / dpr;
-        const logicalH = word.height / dpr;
+      {result.lines.map((line, lineIdx) => {
+        const logicalX = (line.x / dpr) + DOCUMENT_PADDING;
+        const logicalY = (line.y / dpr) + DOCUMENT_PADDING;
+        const logicalW = line.width / dpr;
+        const logicalH = line.height / dpr;
         
+        // Add subtle padding to make the text block look like Snipping Tool
+        const padX = 4;
+        const padY = 2;
+
         return (
-          <span
-            key={index}
-            className="absolute whitespace-pre select-text selection:bg-blue-500/40 selection:text-transparent"
+          <div
+            key={lineIdx}
+            className="absolute rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-text"
             style={{
-              left: `${logicalX}px`,
-              top: `${logicalY}px`,
-              width: `${logicalW}px`,
-              height: `${logicalH}px`,
-              color: 'transparent',
-              cursor: 'text',
-              fontSize: `${Math.max(logicalH * 0.8, 12)}px`,
-              lineHeight: `${logicalH}px`,
-              display: 'flex',
-              alignItems: 'center',
+              left: `${logicalX - padX}px`,
+              top: `${logicalY - padY}px`,
+              width: `${logicalW + padX * 2}px`,
+              height: `${logicalH + padY * 2}px`,
             }}
-            title={word.text}
+            title={line.text}
           >
-            {word.text}
-          </span>
+            <div className="w-full h-full relative" style={{ transform: `translate(${padX}px, ${padY}px)` }}>
+              {line.words.map((word, wordIdx) => {
+                const relX = (word.x - line.x) / dpr;
+                const relY = (word.y - line.y) / dpr;
+                const wordH = word.height / dpr;
+                
+                // Calculate extended width to completely eliminate horizontal gaps between words
+                const nextWord = line.words[wordIdx + 1];
+                const nextRelX = nextWord ? (nextWord.x - line.x) / dpr : line.width / dpr;
+                const extendedWidth = nextRelX - relX;
+                
+                return (
+                  <span
+                    key={wordIdx}
+                    className="absolute whitespace-pre select-text pointer-events-auto selection:bg-blue-500/40 selection:text-transparent"
+                    style={{
+                      left: `${relX}px`,
+                      top: `${relY}px`,
+                      width: `${extendedWidth}px`, // Use extended width to cover gaps
+                      height: `${wordH}px`,
+                      color: 'transparent',
+                      fontSize: `${Math.max(wordH * 0.8, 12)}px`,
+                      lineHeight: `${wordH}px`,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {word.text}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </div>

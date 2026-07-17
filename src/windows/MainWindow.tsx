@@ -28,7 +28,8 @@ export function MainWindow() {
     startDrawing, 
     draw, 
     stopDrawing,
-    handleClear
+    handleClear,
+    getDocumentCanvas
   } = useCanvasDrawing(wrapperRef, mainCanvasRef, draftCanvasRef);
 
   useEffect(() => {
@@ -83,9 +84,10 @@ export function MainWindow() {
   };
 
   const copyToClipboard = async () => {
-    if (mainCanvasRef.current) {
+    const docCanvas = getDocumentCanvas();
+    if (docCanvas) {
       try {
-        const canvas = getCroppedCanvas(mainCanvasRef.current);
+        const canvas = getCroppedCanvas(docCanvas);
         await ClipboardService.copyCanvasToClipboard(canvas);
         showNotification('success', 'Image copied to clipboard');
       } catch (e) {
@@ -96,9 +98,10 @@ export function MainWindow() {
   };
 
   const exportImage = async () => {
-    if (mainCanvasRef.current) {
+    const docCanvas = getDocumentCanvas();
+    if (docCanvas) {
       try {
-        const canvas = getCroppedCanvas(mainCanvasRef.current);
+        const canvas = getCroppedCanvas(docCanvas);
         await ClipboardService.exportCanvas(canvas);
         showNotification('success', 'Image exported successfully');
       } catch (e) {
@@ -150,7 +153,7 @@ export function MainWindow() {
               {/* Canvas Wrapper for Viewport Transform */}
               <div 
                 ref={wrapperRef}
-                className="absolute origin-top-left touch-none"
+                className="absolute inset-0 touch-none overflow-hidden"
               >
                 {/* Main Canvas: Holds confirmed strokes */}
                 <canvas

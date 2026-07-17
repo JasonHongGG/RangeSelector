@@ -13,6 +13,9 @@ export class CanvasEngine {
   private mainCtx: CanvasRenderingContext2D;
   private draftCtx: CanvasRenderingContext2D;
   
+  private documentCanvas: HTMLCanvasElement;
+  private documentCtx: CanvasRenderingContext2D;
+  
   private historyManager: HistoryManager;
   private viewportManager: ViewportManager;
   
@@ -23,6 +26,9 @@ export class CanvasEngine {
   
   private color: string = '#ef4444';
   private brushSize: number = 4;
+  
+  private resizeObserver: ResizeObserver;
+  private dpr: number = 1;
 
   constructor(wrapper: HTMLDivElement, mainCanvas: HTMLCanvasElement, draftCanvas: HTMLCanvasElement, onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void) {
     this.wrapper = wrapper;
@@ -36,14 +42,44 @@ export class CanvasEngine {
     this.mainCtx = mCtx;
     this.draftCtx = dCtx;
     
+    this.documentCanvas = document.createElement('canvas');
+    this.documentCtx = this.documentCanvas.getContext('2d', { willReadFrequently: true })!;
+    
     this.historyManager = new HistoryManager(onHistoryChange);
-    this.viewportManager = new ViewportManager(wrapper, draftCanvas);
+    this.viewportManager = new ViewportManager(() => this.render());
     
     this.toolModes = {
       'draw': new PenTool(),
       'erase': new EraserTool()
     };
     this.currentTool = this.toolModes['draw'];
+
+    this.dpr = window.devicePixelRatio || 1;
+
+    this.resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        this.updateScreenResolution(entry.contentRect.width, entry.contentRect.height);
+      }
+    });
+    if (this.wrapper.parentElement) {
+      this.resizeObserver.observe(this.wrapper.parentElement);
+    }
+  }
+
+  private updateScreenResolution(width: number, height: number) {
+    this.mainCanvas.width = width * this.dpr;
+    this.mainCanvas.height = height * this.dpr;
+    this.mainCanvas.style.width = `${width}px`;
+    this.mainCanvas.style.height = `${height}px`;
+    
+    this.draftCanvas.width = width * this.dpr;
+    this.draftCanvas.height = height * this.dpr;
+    this.draftCanvas.style.width = `${width}px`;
+    this.draftCanvas.style.height = `${height}px`;
+    
+    this.viewportManager.resize(width * this.dpr, height * this.dpr);
+    this.render();
   }
 
   public getViewportManager() {
@@ -54,39 +90,41 @@ export class CanvasEngine {
     return new Promise((resolve) => {
       const img = new globalThis.Image();
       img.onload = () => {
-        const dpr = window.devicePixelRatio || 1;
         const PADDING = 150;
-        const physPadding = Math.round(PADDING * dpr);
+        const physPadding = Math.round(PADDING * this.dpr);
 
         const physWidth = img.width + physPadding * 2;
         const physHeight = img.height + physPadding * 2;
-        const cssWidth = (img.width / dpr) + PADDING * 2;
-        const cssHeight = (img.height / dpr) + PADDING * 2;
 
-        this.mainCanvas.width = physWidth;
-        this.mainCanvas.height = physHeight;
-        this.draftCanvas.width = physWidth;
-        this.draftCanvas.height = physHeight;
+        this.documentCanvas.width = physWidth;
+        this.documentCanvas.height = physHeight;
         
-        this.wrapper.style.width = `${cssWidth}px`;
-        this.wrapper.style.height = `${cssHeight}px`;
+        this.documentCtx.clearRect(0, 0, physWidth, physHeight);
+        this.documentCtx.drawImage(img, physPadding, physPadding);
         
-        this.mainCtx.drawImage(img, physPadding, physPadding);
-        
-        const baseData = this.mainCtx.getImageData(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+        const baseData = this.documentCtx.getImageData(0, 0, physWidth, physHeight);
         this.historyManager.reset(baseData);
         
-        // Auto fit the canvas into the parent container
-        const container = this.wrapper.parentElement;
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          this.viewportManager.autoFit(rect.width, rect.height, cssWidth, cssHeight);
-        }
+        this.viewportManager.autoFit(img.width, img.height, physPadding);
         
         resolve();
       };
       img.src = imageSrc;
     });
+  }
+
+  public render() {
+    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+    
+    this.mainCtx.save();
+    this.viewportManager.applyToContext(this.mainCtx);
+    
+    this.mainCtx.drawImage(this.documentCanvas, 0, 0);
+    this.mainCtx.restore();
+  }
+
+  public getDocumentCanvas(): HTMLCanvasElement {
+    return this.documentCanvas;
   }
 
   public setToolMode(mode: 'draw' | 'erase') {
@@ -104,24 +142,30 @@ export class CanvasEngine {
   }
 
   public undo() {
-    this.historyManager.undo(this.mainCtx);
+    this.historyManager.undo(this.documentCtx);
+    this.render();
   }
 
   public redo() {
-    this.historyManager.redo(this.mainCtx);
+    this.historyManager.redo(this.documentCtx);
+    this.render();
   }
 
   public clear() {
-    this.historyManager.clear(this.mainCtx, this.mainCanvas.width, this.mainCanvas.height);
+    this.historyManager.clear(this.documentCtx, this.documentCanvas.width, this.documentCanvas.height);
+    this.render();
   }
 
-  private getCoordinates(e: PointerEvent): Point {
-    return this.viewportManager.mapScreenToCanvas(e);
+  private getDocumentCoordinates(e: PointerEvent): Point {
+    const rect = this.wrapper.getBoundingClientRect();
+    const screenX = (e.clientX - rect.left) * this.dpr;
+    const screenY = (e.clientY - rect.top) * this.dpr;
+    return this.viewportManager.mapScreenToDocument(screenX, screenY);
   }
 
   private getToolContext() {
     return {
-      mainCtx: this.mainCtx,
+      mainCtx: this.documentCtx,
       draftCtx: this.draftCtx,
       color: this.color,
       brushSize: this.brushSize,
@@ -129,39 +173,73 @@ export class CanvasEngine {
   }
 
   public handlePointerDown = (e: PointerEvent) => {
-    if (this.viewportManager.handlePanStart(e)) {
-      return;
+    if (e.ctrlKey) {
+      const rect = this.wrapper.getBoundingClientRect();
+      const screenX = (e.clientX - rect.left) * this.dpr;
+      const screenY = (e.clientY - rect.top) * this.dpr;
+      if (this.viewportManager.handlePanStart(screenX, screenY)) {
+        if (this.wrapper.parentElement) {
+          this.wrapper.parentElement.style.cursor = 'grabbing';
+        }
+        return;
+      }
     }
     
     this.isDrawing = true;
     this.draftCanvas.setPointerCapture(e.pointerId);
-    const point = this.getCoordinates(e);
+    
+    this.draftCtx.save();
+    this.viewportManager.applyToContext(this.draftCtx);
+    
+    const point = this.getDocumentCoordinates(e);
     this.currentTool.onPointerDown(point, this.getToolContext(), e);
+    
+    this.draftCtx.restore();
   };
 
   public handlePointerMove = (e: PointerEvent) => {
-    if (this.viewportManager.handlePanMove(e)) {
+    const rect = this.wrapper.getBoundingClientRect();
+    const screenX = (e.clientX - rect.left) * this.dpr;
+    const screenY = (e.clientY - rect.top) * this.dpr;
+    
+    if (this.viewportManager.handlePanMove(screenX, screenY)) {
       return;
     }
     
     if (!this.isDrawing) return;
-    const point = this.getCoordinates(e);
+    
+    this.draftCtx.clearRect(0, 0, this.draftCanvas.width, this.draftCanvas.height);
+    
+    this.draftCtx.save();
+    this.viewportManager.applyToContext(this.draftCtx);
+    
+    const point = this.getDocumentCoordinates(e);
     this.currentTool.onPointerMove(point, this.getToolContext(), e);
+    
+    this.draftCtx.restore();
   };
 
   public handlePointerUpOrLeave = (e: PointerEvent) => {
     if (this.viewportManager.handlePanEnd()) {
+      if (this.wrapper.parentElement) {
+        this.wrapper.parentElement.style.cursor = '';
+      }
       return;
     }
     
     if (!this.isDrawing) return;
     this.isDrawing = false;
     this.draftCanvas.releasePointerCapture(e.pointerId);
-    const point = this.getCoordinates(e);
+    
+    this.draftCtx.clearRect(0, 0, this.draftCanvas.width, this.draftCanvas.height);
+    
+    const point = this.getDocumentCoordinates(e);
     this.currentTool.onPointerUp(point, this.getToolContext(), e);
     
-    // Save to history
-    const newData = this.mainCtx.getImageData(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+    const newData = this.documentCtx.getImageData(0, 0, this.documentCanvas.width, this.documentCanvas.height);
     this.historyManager.push(newData);
+    
+    this.render();
   };
 }
+

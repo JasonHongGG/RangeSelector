@@ -3,20 +3,20 @@ import { useUIStore } from '../../store/useUIStore';
 
 interface TooltipProps {
   content: ReactNode;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   delay?: number;
 }
 
 export function Tooltip({ content, children, delay = 300 }: TooltipProps) {
   const { setTooltip, hideTooltip } = useUIStore();
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<number | null>(null);
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.bottom;
 
-    timerRef.current = setTimeout(() => {
+    timerRef.current = window.setTimeout(() => {
       setTooltip(content, x, y);
     }, delay);
 

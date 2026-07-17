@@ -39,7 +39,7 @@ export class PenTool implements ToolAction {
     ctx.stroke();
   }
 
-  onPointerDown(point: Point, context: ToolContext, e: PointerEvent): void {
+  onPointerDown(point: Point, context: ToolContext, _e: PointerEvent): void {
     this.points = [point];
     this.startPoint = point;
     this.setupContext(context.draftCtx, context);

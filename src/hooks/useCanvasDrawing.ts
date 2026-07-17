@@ -56,8 +56,12 @@ export function useCanvasDrawing(
     };
     
     const handleWheel = (e: WheelEvent) => {
-      if (engine && e.ctrlKey) {
-        engine.getViewportManager().handleWheel(e);
+      if (engine && e.ctrlKey && wrapperRef.current) {
+        const rect = wrapperRef.current.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const screenX = (e.clientX - rect.left) * dpr;
+        const screenY = (e.clientY - rect.top) * dpr;
+        engine.getViewportManager().handleWheel(e, screenX, screenY);
       }
     };
 
@@ -83,6 +87,7 @@ export function useCanvasDrawing(
     stopDrawing: (e: React.PointerEvent) => engine?.handlePointerUpOrLeave(e.nativeEvent),
     handleUndo: () => engine?.undo(),
     handleRedo: () => engine?.redo(),
-    handleClear: () => engine?.clear()
+    handleClear: () => engine?.clear(),
+    getDocumentCanvas: () => engine?.getDocumentCanvas()
   };
 }

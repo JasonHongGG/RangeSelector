@@ -81,23 +81,15 @@ export class WindowService {
   }
 
   static async openHistoryWindow(): Promise<void> {
-    const existing = await WebviewWindow.getByLabel('history-window');
-    if (existing) {
-      await existing.show();
-      await existing.setFocus();
-      await existing.unminimize();
-      return;
+    try {
+      const historyWindow = await WebviewWindow.getByLabel('history-window');
+      if (historyWindow) {
+        await historyWindow.show();
+        await historyWindow.setFocus();
+        await historyWindow.unminimize();
+      }
+    } catch (e) {
+      console.error("Failed to open history window", e);
     }
-    new WebviewWindow('history-window', {
-      url: '/?window=history',
-      title: 'History',
-      width: 700,
-      height: 550,
-      minWidth: 400,
-      minHeight: 300,
-      transparent: true,
-      decorations: false,
-      center: true
-    });
   }
 }

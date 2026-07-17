@@ -24,7 +24,11 @@ export default function TitleBar({ title = 'RangeSelector', onClose, children }:
     if (onClose) {
       onClose();
     } else {
-      await appWindow.close();
+      if (appWindow.label === 'main') {
+        await appWindow.close();
+      } else {
+        await appWindow.hide();
+      }
     }
   };
 

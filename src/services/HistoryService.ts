@@ -4,7 +4,9 @@ import { HistoryItem } from "../core/types";
 
 export class HistoryService {
   static async saveHistory(base64Data: string): Promise<string> {
-    return await invoke<string>("save_history", { base64Data });
+    const id = await invoke<string>("save_history", { base64Data });
+    await emit('history-updated');
+    return id;
   }
 
   static async getHistoryList(): Promise<HistoryItem[]> {
@@ -17,6 +19,7 @@ export class HistoryService {
 
   static async deleteHistory(id: string): Promise<void> {
     await invoke("delete_history", { id });
+    await emit('history-updated');
   }
 
   static async onLoadHistory(callback: (dataUrl: string) => void): Promise<() => void> {

@@ -95,9 +95,39 @@ export function HistoryWindow() {
   const showNotification = useUIStore(state => state.showNotification);
 
   useEffect(() => {
-    HistoryService.getHistoryList()
-      .then(res => setHistory(res))
-      .catch(e => setErrorMsg(String(e)));
+    let unlistenClose: (() => void) | undefined;
+    let unlistenUpdate: (() => void) | undefined;
+
+    const setup = async () => {
+      // Intercept the close event to hide instead of closing
+      unlistenClose = await WindowService.setupCloseHandler();
+      
+      // Load history initially
+      try {
+        const res = await HistoryService.getHistoryList();
+        setHistory(res);
+      } catch (e) {
+        setErrorMsg(String(e));
+      }
+
+      // Listen for background history updates
+      const { listen } = await import('@tauri-apps/api/event');
+      unlistenUpdate = await listen('history-updated', async () => {
+        try {
+          const res = await HistoryService.getHistoryList();
+          setHistory(res);
+        } catch (e) {
+          setErrorMsg(String(e));
+        }
+      });
+    };
+
+    setup();
+
+    return () => {
+      if (unlistenClose) unlistenClose();
+      if (unlistenUpdate) unlistenUpdate();
+    };
   }, []);
 
   const handleSelect = async (path: string) => {

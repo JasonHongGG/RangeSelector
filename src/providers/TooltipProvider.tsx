@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useUIStore } from '../../store/useUIStore';
+import { useUIStore } from '../store/useUIStore';
 
 export function TooltipProvider({ children }: { children: React.ReactNode }) {
   const { visible, content, x, y } = useUIStore((state) => state.tooltipContext);

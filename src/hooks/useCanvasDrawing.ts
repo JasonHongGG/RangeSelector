@@ -1,19 +1,22 @@
 import { useState, useEffect, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { useOcrStore } from '../store/useOcrStore';
 import { CanvasEngine } from '../core/canvas/CanvasEngine';
 
 export function useCanvasDrawing(
   wrapperRef: RefObject<HTMLDivElement | null>,
   mainCanvasRef: RefObject<HTMLCanvasElement | null>,
-  draftCanvasRef: RefObject<HTMLCanvasElement | null>
+  draftCanvasRef: RefObject<HTMLCanvasElement | null>,
+  isWindowReady: boolean
 ) {
   const { color, brushSize, imageSrc, toolMode, isEditing } = useAppStore();
+  const { isOcrModeActive } = useOcrStore();
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
   useEffect(() => {
-    if (isEditing && wrapperRef.current && mainCanvasRef.current && draftCanvasRef.current && !engine) {
+    if (isEditing && isWindowReady && wrapperRef.current && mainCanvasRef.current && draftCanvasRef.current && !engine) {
       const newEngine = new CanvasEngine(
         wrapperRef.current,
         mainCanvasRef.current,
@@ -27,7 +30,7 @@ export function useCanvasDrawing(
     } else if (!isEditing) {
       setEngine(null);
     }
-  }, [isEditing, wrapperRef, mainCanvasRef, draftCanvasRef, engine]);
+  }, [isEditing, isWindowReady, wrapperRef, mainCanvasRef, draftCanvasRef, engine]);
 
   useEffect(() => {
     if (engine && imageSrc) {
@@ -40,8 +43,9 @@ export function useCanvasDrawing(
       engine.setToolMode(toolMode);
       engine.setColor(color);
       engine.setBrushSize(brushSize);
+      engine.setReadonly(isOcrModeActive);
     }
-  }, [engine, toolMode, color, brushSize]);
+  }, [engine, toolMode, color, brushSize, isOcrModeActive]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,9 +62,8 @@ export function useCanvasDrawing(
     const handleWheel = (e: WheelEvent) => {
       if (engine && e.ctrlKey && wrapperRef.current) {
         const rect = wrapperRef.current.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const screenX = (e.clientX - rect.left) * dpr;
-        const screenY = (e.clientY - rect.top) * dpr;
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
         engine.getViewportManager().handleWheel(e, screenX, screenY);
       }
     };

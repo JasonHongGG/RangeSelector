@@ -23,6 +23,10 @@ export class ViewportManager {
     this.onChange = onChange;
   }
 
+  public getContainerWidth(): number {
+    return this.containerWidth;
+  }
+
   public resize(width: number, height: number) {
     this.containerWidth = width;
     this.containerHeight = height;
@@ -40,8 +44,8 @@ export class ViewportManager {
     const scaleX = targetWidth / imageWidth;
     const scaleY = targetHeight / imageHeight;
     
-    // Calculate the exact scale needed to touch the edges (no arbitrary caps)
-    this.zoom = Math.min(scaleX, scaleY);
+    // Scale down to fit, but NEVER scale up (Snipping Tool behavior to prevent blurriness)
+    this.zoom = Math.min(1, scaleX, scaleY);
     
     // Center of the document (image + padding)
     this.cameraX = (imageWidth + padding * 2) / 2;

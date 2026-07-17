@@ -25,12 +25,20 @@ export class CanvasEngine {
   private toolModes: Record<string, ToolAction>;
   
   private isDrawing: boolean = false;
+  private isReadonly: boolean = false;
   
   private color: string = '#ef4444';
   private brushSize: number = 4;
   
   private resizeObserver: ResizeObserver;
   private dpr: number = 1;
+
+  private logicalImageWidth: number = 0;
+  private logicalImageHeight: number = 0;
+  private logicalDocumentWidth: number = 0;
+  private logicalDocumentHeight: number = 0;
+  private hasImageLoaded: boolean = false;
+  private hasAutoFit: boolean = false;
 
   constructor(wrapper: HTMLDivElement, mainCanvas: HTMLCanvasElement, draftCanvas: HTMLCanvasElement, onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void) {
     this.wrapper = wrapper;
@@ -75,18 +83,32 @@ export class CanvasEngine {
   }
 
   private updateScreenResolution(width: number, height: number) {
-    this.mainCanvas.width = width * this.dpr;
-    this.mainCanvas.height = height * this.dpr;
+    const physWidth = Math.round(width * this.dpr);
+    const physHeight = Math.round(height * this.dpr);
+
+    this.mainCanvas.width = physWidth;
+    this.mainCanvas.height = physHeight;
     this.mainCanvas.style.width = `${width}px`;
     this.mainCanvas.style.height = `${height}px`;
     
-    this.draftCanvas.width = width * this.dpr;
-    this.draftCanvas.height = height * this.dpr;
+    this.draftCanvas.width = physWidth;
+    this.draftCanvas.height = physHeight;
     this.draftCanvas.style.width = `${width}px`;
     this.draftCanvas.style.height = `${height}px`;
     
-    this.viewportManager.resize(width * this.dpr, height * this.dpr);
+    this.viewportManager.resize(width, height);
+    this.tryAutoFit();
     this.render();
+  }
+
+  private tryAutoFit() {
+    if (this.hasImageLoaded && !this.hasAutoFit) {
+      const cw = this.viewportManager.getContainerWidth();
+      if (cw > 0) {
+        this.viewportManager.autoFit(this.logicalImageWidth, this.logicalImageHeight, DOCUMENT_PADDING);
+        this.hasAutoFit = true;
+      }
+    }
   }
 
   public getViewportManager() {
@@ -111,7 +133,12 @@ export class CanvasEngine {
         const baseData = this.documentCtx.getImageData(0, 0, physWidth, physHeight);
         this.historyManager.reset(baseData);
         
-        this.viewportManager.autoFit(img.width, img.height, DOCUMENT_PADDING);
+        this.logicalImageWidth = img.width / this.dpr;
+        this.logicalImageHeight = img.height / this.dpr;
+        this.logicalDocumentWidth = physWidth / this.dpr;
+        this.logicalDocumentHeight = physHeight / this.dpr;
+        this.hasImageLoaded = true;
+        this.tryAutoFit();
         
         resolve();
       };
@@ -123,9 +150,10 @@ export class CanvasEngine {
     this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
     
     this.mainCtx.save();
+    this.mainCtx.scale(this.dpr, this.dpr);
     this.viewportManager.applyToContext(this.mainCtx);
     
-    this.mainCtx.drawImage(this.documentCanvas, 0, 0);
+    this.mainCtx.drawImage(this.documentCanvas, 0, 0, this.logicalDocumentWidth, this.logicalDocumentHeight);
     this.mainCtx.restore();
   }
 
@@ -137,6 +165,10 @@ export class CanvasEngine {
     if (this.toolModes[mode]) {
       this.currentTool = this.toolModes[mode];
     }
+  }
+
+  public setReadonly(readonly: boolean) {
+    this.isReadonly = readonly;
   }
 
   public setColor(color: string) {
@@ -164,8 +196,8 @@ export class CanvasEngine {
 
   private getDocumentCoordinates(e: PointerEvent): Point {
     const rect = this.wrapper.getBoundingClientRect();
-    const screenX = (e.clientX - rect.left) * this.dpr;
-    const screenY = (e.clientY - rect.top) * this.dpr;
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
     return this.viewportManager.mapScreenToDocument(screenX, screenY);
   }
 
@@ -181,8 +213,8 @@ export class CanvasEngine {
   public handlePointerDown = (e: PointerEvent) => {
     if (e.ctrlKey) {
       const rect = this.wrapper.getBoundingClientRect();
-      const screenX = (e.clientX - rect.left) * this.dpr;
-      const screenY = (e.clientY - rect.top) * this.dpr;
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
       if (this.viewportManager.handlePanStart(screenX, screenY)) {
         if (this.wrapper.parentElement) {
           this.wrapper.parentElement.style.cursor = 'grabbing';
@@ -191,10 +223,13 @@ export class CanvasEngine {
       }
     }
     
+    if (this.isReadonly) return;
+    
     this.isDrawing = true;
     this.draftCanvas.setPointerCapture(e.pointerId);
     
     this.draftCtx.save();
+    this.draftCtx.scale(this.dpr, this.dpr);
     this.viewportManager.applyToContext(this.draftCtx);
     
     const point = this.getDocumentCoordinates(e);
@@ -205,8 +240,8 @@ export class CanvasEngine {
 
   public handlePointerMove = (e: PointerEvent) => {
     const rect = this.wrapper.getBoundingClientRect();
-    const screenX = (e.clientX - rect.left) * this.dpr;
-    const screenY = (e.clientY - rect.top) * this.dpr;
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
     
     if (this.viewportManager.handlePanMove(screenX, screenY)) {
       return;
@@ -217,6 +252,7 @@ export class CanvasEngine {
     this.draftCtx.clearRect(0, 0, this.draftCanvas.width, this.draftCanvas.height);
     
     this.draftCtx.save();
+    this.draftCtx.scale(this.dpr, this.dpr);
     this.viewportManager.applyToContext(this.draftCtx);
     
     const point = this.getDocumentCoordinates(e);
@@ -240,7 +276,11 @@ export class CanvasEngine {
     this.draftCtx.clearRect(0, 0, this.draftCanvas.width, this.draftCanvas.height);
     
     const point = this.getDocumentCoordinates(e);
+    
+    this.documentCtx.save();
+    this.documentCtx.scale(this.dpr, this.dpr);
     this.currentTool.onPointerUp(point, this.getToolContext(), e);
+    this.documentCtx.restore();
     
     const newData = this.documentCtx.getImageData(0, 0, this.documentCanvas.width, this.documentCanvas.height);
     this.historyManager.push(newData);

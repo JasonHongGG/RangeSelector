@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import TitleBar from "../components/TitleBar";
 import { ScanLine, History } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
@@ -15,8 +15,9 @@ import { useUIStore } from "../store/useUIStore";
 import { Tooltip } from "../components/common/Tooltip";
 
 export function MainWindow() {
-  const { isEditing, setIsEditing, setImageSrc } = useAppStore();
+  const { isEditing, setIsEditing, setImageSrc, imageSrc } = useAppStore();
   const showNotification = useUIStore(state => state.showNotification);
+  const [isWindowExpanded, setIsWindowExpanded] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const draftCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,7 +33,7 @@ export function MainWindow() {
     handleClear,
     getDocumentCanvas,
     viewportManager
-  } = useCanvasDrawing(wrapperRef, mainCanvasRef, draftCanvasRef);
+  } = useCanvasDrawing(wrapperRef, mainCanvasRef, draftCanvasRef, isWindowExpanded);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,12 +76,32 @@ export function MainWindow() {
   }, [setImageSrc, setIsEditing]);
 
   useEffect(() => {
-    if (isEditing) {
-      WindowService.setExpandedMode();
+    let active = true;
+    if (isEditing && imageSrc) {
+      const img = new Image();
+      img.onload = async () => {
+        if (!active) return;
+        const dpr = window.devicePixelRatio || 1;
+        const logicalWidth = img.width / dpr;
+        const logicalHeight = img.height / dpr;
+        
+        await WindowService.setExpandedMode(logicalWidth, logicalHeight);
+        
+        if (!active) return;
+        
+        // Delay to allow OS window to finish physical resize
+        setTimeout(() => {
+          if (active) setIsWindowExpanded(true);
+        }, 150);
+      };
+      img.src = imageSrc;
     } else {
+      setIsWindowExpanded(false);
       WindowService.setCompactMode();
     }
-  }, [isEditing]);
+    
+    return () => { active = false; };
+  }, [isEditing, imageSrc]);
 
   const handleCapture = async () => {
     try {
@@ -154,7 +175,7 @@ export function MainWindow() {
               <span className="text-[11px] font-bold tracking-[0.2em] text-gray-500 dark:text-white/50 uppercase">Ready to Capture</span>
             </div>
           </div>
-        ) : (
+        ) : isWindowExpanded ? (
           <div className="flex flex-col w-full h-full min-h-0 animate-scale-in p-4">
             <div className="flex-1 rounded-lg border border-black/5 dark:border-white/5 bg-gray-100 dark:bg-black/40 shadow-inner overflow-hidden relative cursor-crosshair group">
               
@@ -193,6 +214,10 @@ export function MainWindow() {
                 canRedo={canRedo}
               />
             </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center w-full h-full opacity-50 animate-pulse">
+            <span className="text-gray-500">Preparing workspace...</span>
           </div>
         )}
       </div>

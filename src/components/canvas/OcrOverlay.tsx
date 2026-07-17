@@ -106,28 +106,40 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
       // This allows the user to start dragging from outside the overlay!
       if (!range.intersectsNode(overlayRef.current)) return;
 
-      const selectedChars: { lineIdx: number, charIdx: number }[] = [];
-      const charNodes = overlayRef.current.querySelectorAll('.ocr-char');
-      
-      charNodes.forEach((node) => {
-        if (!range.intersectsNode(node)) return;
-        
-        // Exclude nodes where the selection ends exactly at their start (0 characters selected from this node)
-        if (range.endContainer === node.firstChild && range.endOffset === 0) return;
-        if (range.endContainer === node && range.endOffset === 0) return;
-        
-        // Exclude nodes where the selection starts exactly at their end
-        if (range.startContainer === node.firstChild && range.startOffset === node.textContent?.length) return;
+      const selectedCharsMap = new Map<string, { lineIdx: number, charIdx: number }>();
 
+      const addNode = (node: Element) => {
         const lineIdxStr = node.getAttribute('data-line-idx');
         const charIdxStr = node.getAttribute('data-char-idx');
         if (lineIdxStr && charIdxStr) {
-          selectedChars.push({ 
-            lineIdx: parseInt(lineIdxStr, 10), 
-            charIdx: parseInt(charIdxStr, 10) 
+          selectedCharsMap.set(`${lineIdxStr}-${charIdxStr}`, {
+            lineIdx: parseInt(lineIdxStr, 10),
+            charIdx: parseInt(charIdxStr, 10)
           });
         }
+      };
+      
+      const charNodes = overlayRef.current.querySelectorAll('.ocr-char');
+      charNodes.forEach((node) => {
+        // If the native selection intersects the physical DOM node AT ALL, select it!
+        // This makes the selection feel instantly responsive like Snipping Tool bounding boxes.
+        if (range.intersectsNode(node)) {
+          addNode(node);
+        }
       });
+
+      // Force include the exact nodes the user started clicking (anchor) and is currently hovering (focus)
+      // This bypasses native browser quirks where it drops text nodes if you click the empty space inside an inline-block.
+      if (sel.anchorNode) {
+        const anchorEl = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : (sel.anchorNode as Element);
+        if (anchorEl?.classList.contains('ocr-char')) addNode(anchorEl);
+      }
+      if (sel.focusNode) {
+        const focusEl = sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : (sel.focusNode as Element);
+        if (focusEl?.classList.contains('ocr-char')) addNode(focusEl);
+      }
+
+      const selectedChars = Array.from(selectedCharsMap.values());
 
       const lineMap = new Map<number, number[]>();
       selectedChars.forEach(({ lineIdx, charIdx }) => {
@@ -216,15 +228,18 @@ export function OcrOverlay({ viewportManager }: OcrOverlayProps) {
             >
               <div 
                 className="w-full h-full relative"
-                style={{ whiteSpace: 'nowrap' }}
+                style={{ 
+                  whiteSpace: 'nowrap',
+                  // Ensure the first character starts at its true physical offset, restoring the padX alignment
+                  paddingLeft: `${line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX}px`
+                }}
               >
                 {(() => {
-                  let currentX = 0;
+                  let currentX = line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX;
                   return line.charBounds.map((bounds, charIdx) => {
-                    const isFirst = charIdx === 0;
                     const isLast = charIdx === line.charBounds.length - 1;
                     
-                    const spanLeft = isFirst ? 0 : currentX;
+                    const spanLeft = currentX;
                     const expectedRight = isLast ? (line.logicalW + padX * 2) : (line.charBounds[charIdx + 1].x - line.logicalX + padX);
                     const spanWidth = Math.max(0, expectedRight - spanLeft);
                     

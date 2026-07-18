@@ -11,6 +11,17 @@ function App() {
   const theme = useAppStore(state => state.theme);
 
   useEffect(() => {
+    if (windowLabel === 'main') {
+      ShortcutService.init();
+    }
+    return () => {
+      if (windowLabel === 'main') {
+        ShortcutService.destroy();
+      }
+    };
+  }, [windowLabel]);
+
+  useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -28,18 +39,11 @@ function App() {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', handleContextMenu);
     
-    if (windowLabel === 'main') {
-      ShortcutService.init();
-    }
-    
     return () => {
       window.removeEventListener('storage', handleStorage);
       document.removeEventListener('contextmenu', handleContextMenu);
-      if (windowLabel === 'main') {
-        ShortcutService.destroy();
-      }
     };
-  }, [theme, windowLabel]);
+  }, [theme]);
 
   if (windowLabel === 'selection-window') return <SelectionWindow />;
   if (windowLabel === 'history-window') return <HistoryWindow />;

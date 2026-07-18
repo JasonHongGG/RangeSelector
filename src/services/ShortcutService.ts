@@ -3,44 +3,45 @@ import { CaptureService } from './CaptureService';
 import { WindowService } from './WindowService';
 
 export class ShortcutService {
-  private static isInitialized = false;
+  private static initPromise: Promise<void> | null = null;
 
   /**
    * Initializes global shortcuts. Should be called once on app startup.
    */
   public static async init() {
-    if (this.isInitialized) return;
+    if (this.initPromise) return this.initPromise;
     
-    try {
-      // Clear any existing shortcuts to avoid duplicates on fast-refresh during dev
-      await unregisterAll();
+    this.initPromise = (async () => {
+      try {
+        // Clear any existing shortcuts to avoid duplicates on fast-refresh during dev
+        await unregisterAll();
 
-      const captureShortcut = 'Shift+Alt+S';
-      
-      const isSet = await isRegistered(captureShortcut);
-      if (!isSet) {
-        await register(captureShortcut, async (event) => {
-          if (event.state === 'Pressed') {
-            console.log(`Global shortcut ${captureShortcut} triggered!`);
-            try {
-              // Note: CaptureService.performCaptureFlow hides the main window, 
-              // triggers the crosshair overlay, and captures the screen.
-              // Since the shortcut can be triggered when the app is in the background,
-              // this seamlessly initiates the capture workflow.
-              await CaptureService.performCaptureFlow();
-            } catch (e) {
-              console.error("Capture failed from shortcut:", e);
-              await WindowService.showMainWindow();
+        const captureShortcut = 'Alt+X';
+        
+        const isSet = await isRegistered(captureShortcut);
+        if (!isSet) {
+          await register(captureShortcut, async (event) => {
+            if (event.state === 'Pressed') {
+              console.log(`Global shortcut ${captureShortcut} triggered!`);
+              try {
+                await CaptureService.performCaptureFlow();
+              } catch (e) {
+                console.error("Capture failed from shortcut:", e);
+                await WindowService.showMainWindow();
+              }
             }
-          }
-        });
-        console.log(`Successfully registered global shortcut: ${captureShortcut}`);
+          });
+          console.log(`[ShortcutService] Successfully registered global shortcut: ${captureShortcut}`);
+        } else {
+          console.warn(`[ShortcutService] Shortcut ${captureShortcut} is already registered by this app (or OS).`);
+        }
+      } catch (error) {
+        console.error('Failed to register global shortcuts:', error);
+        this.initPromise = null;
       }
-      
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Failed to register global shortcuts:', error);
-    }
+    })();
+    
+    return this.initPromise;
   }
 
   /**
@@ -49,7 +50,7 @@ export class ShortcutService {
   public static async destroy() {
     try {
       await unregisterAll();
-      this.isInitialized = false;
+      this.initPromise = null;
     } catch (error) {
       console.error('Failed to unregister global shortcuts:', error);
     }

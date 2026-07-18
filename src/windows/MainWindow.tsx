@@ -13,6 +13,7 @@ import { OcrOverlay } from "../components/canvas/OcrOverlay";
 import { getCroppedCanvas } from "../utils/canvasUtils";
 import { useUIStore } from "../store/useUIStore";
 import { TooltipTrigger } from "../components/ui/tooltip";
+import { WorkspaceService } from "../services/WorkspaceService";
 
 export function MainWindow() {
   const { isEditing, setIsEditing, setImageSrc, imageSrc } = useAppStore();
@@ -40,8 +41,7 @@ export function MainWindow() {
     
     const setup = async () => {
       const uCrop = await CaptureService.onCropResult(async (dataUrl) => {
-        setImageSrc(dataUrl);
-        setIsEditing(true);
+        WorkspaceService.loadDocument(dataUrl);
         try {
           await HistoryService.saveHistory(dataUrl);
         } catch(e) {
@@ -52,8 +52,7 @@ export function MainWindow() {
       else unlistenCrop = uCrop;
       
       const uLoad = await HistoryService.onLoadHistory((dataUrl) => {
-        setImageSrc(dataUrl);
-        setIsEditing(true);
+        WorkspaceService.loadDocument(dataUrl);
       });
       if (!isMounted) uLoad();
       else unlistenLoad = uLoad;

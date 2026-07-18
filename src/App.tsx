@@ -4,6 +4,7 @@ import { SelectionWindow } from "./windows/SelectionWindow";
 import { HistoryWindow } from "./windows/HistoryWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAppStore } from "./store/useAppStore";
+import { ShortcutService } from "./services/ShortcutService";
 
 function App() {
   const [windowLabel] = useState(() => getCurrentWindow().label);
@@ -27,11 +28,18 @@ function App() {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', handleContextMenu);
     
+    if (windowLabel === 'main') {
+      ShortcutService.init();
+    }
+    
     return () => {
       window.removeEventListener('storage', handleStorage);
       document.removeEventListener('contextmenu', handleContextMenu);
+      if (windowLabel === 'main') {
+        ShortcutService.destroy();
+      }
     };
-  }, [theme]);
+  }, [theme, windowLabel]);
 
   if (windowLabel === 'selection-window') return <SelectionWindow />;
   if (windowLabel === 'history-window') return <HistoryWindow />;

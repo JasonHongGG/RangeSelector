@@ -1,15 +1,15 @@
+mod commands;
 mod models;
 mod services;
 mod utils;
-mod commands;
 
-use std::sync::Mutex;
 use models::AppState;
-
+use std::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             use tauri::{
                 menu::{Menu, MenuItem},

@@ -1,9 +1,9 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use serde::Serialize;
 use tauri::command;
 use windows::Graphics::Imaging::BitmapDecoder;
 use windows::Media::Ocr::OcrEngine;
 use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
-use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct OcrWord {
@@ -38,26 +38,45 @@ pub async fn recognize_text(base64_image: String) -> Result<OcrResponse, String>
     } else {
         &base64_image
     };
-    
+
     let image_data = STANDARD.decode(base64_data).map_err(|e| e.to_string())?;
 
     // 2. Create InMemoryRandomAccessStream
     let stream = InMemoryRandomAccessStream::new().map_err(|e| e.to_string())?;
     let writer = DataWriter::CreateDataWriter(&stream).map_err(|e| e.to_string())?;
     writer.WriteBytes(&image_data).map_err(|e| e.to_string())?;
-    writer.StoreAsync().map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
-    writer.FlushAsync().map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
-    
+    writer
+        .StoreAsync()
+        .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?;
+    writer
+        .FlushAsync()
+        .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?;
+
     // Seek back to start
     stream.Seek(0).map_err(|e| e.to_string())?;
 
     // 3. Create BitmapDecoder
-    let decoder = BitmapDecoder::CreateAsync(&stream).map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
-    let bitmap = decoder.GetSoftwareBitmapAsync().map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
+    let decoder = BitmapDecoder::CreateAsync(&stream)
+        .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?;
+    let bitmap = decoder
+        .GetSoftwareBitmapAsync()
+        .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?;
 
     // 4. Run OCR using user profile languages
     let engine = OcrEngine::TryCreateFromUserProfileLanguages().map_err(|e| e.to_string())?;
-    let result = engine.RecognizeAsync(&bitmap).map_err(|e| e.to_string())?.await.map_err(|e| e.to_string())?;
+    let result = engine
+        .RecognizeAsync(&bitmap)
+        .map_err(|e| e.to_string())?
+        .await
+        .map_err(|e| e.to_string())?;
 
     // 5. Extract lines and words
     let mut lines_list = Vec::new();
@@ -65,7 +84,7 @@ pub async fn recognize_text(base64_image: String) -> Result<OcrResponse, String>
     for line in lines {
         let text = line.Text().map_err(|e| e.to_string())?.to_string_lossy();
         let words = line.Words().map_err(|e| e.to_string())?;
-        
+
         let mut line_words = Vec::new();
         let mut min_x = f64::MAX;
         let mut min_y = f64::MAX;
@@ -79,7 +98,7 @@ pub async fn recognize_text(base64_image: String) -> Result<OcrResponse, String>
             let y = rect.Y as f64;
             let w = rect.Width as f64;
             let h = rect.Height as f64;
-            
+
             min_x = f64::min(min_x, x);
             min_y = f64::min(min_y, y);
             max_x = f64::max(max_x, x + w);

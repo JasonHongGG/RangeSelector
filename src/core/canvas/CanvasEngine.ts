@@ -105,11 +105,14 @@ export class CanvasEngine {
 
         this.renderer.initDocumentSize(physWidth, physHeight);
         
-        const documentCtx = this.renderer.getDocumentCtx();
-        documentCtx.clearRect(0, 0, physWidth, physHeight);
-        documentCtx.drawImage(img, physPadding, physPadding);
+        const backgroundCtx = this.renderer.getBackgroundCtx();
+        backgroundCtx.clearRect(0, 0, physWidth, physHeight);
+        backgroundCtx.drawImage(img, physPadding, physPadding);
         
-        const baseData = documentCtx.getImageData(0, 0, physWidth, physHeight);
+        const drawingCtx = this.renderer.getDrawingCtx();
+        drawingCtx.clearRect(0, 0, physWidth, physHeight);
+        
+        const baseData = drawingCtx.getImageData(0, 0, physWidth, physHeight);
         this.historyManager.reset(baseData);
         
         this.logicalImageWidth = img.width / this.dpr;
@@ -130,23 +133,31 @@ export class CanvasEngine {
   }
 
   public undo() {
-    this.historyManager.undo(this.renderer.getDocumentCtx());
+    this.historyManager.undo(this.renderer.getDrawingCtx());
     this.render();
   }
 
   public redo() {
-    this.historyManager.redo(this.renderer.getDocumentCtx());
+    this.historyManager.redo(this.renderer.getDrawingCtx());
     this.render();
   }
 
   public clear() {
-    const documentCanvas = this.renderer.getDocumentCanvas();
-    this.historyManager.clear(this.renderer.getDocumentCtx(), documentCanvas.width, documentCanvas.height);
+    const drawingCanvas = this.renderer.getDrawingCanvas();
+    this.historyManager.clear(this.renderer.getDrawingCtx(), drawingCanvas.width, drawingCanvas.height);
     this.render();
   }
 
   public getDocumentCanvas(): HTMLCanvasElement {
-    return this.renderer.getDocumentCanvas();
+    const bg = this.renderer.getBackgroundCanvas();
+    const dw = this.renderer.getDrawingCanvas();
+    const composite = document.createElement('canvas');
+    composite.width = bg.width;
+    composite.height = bg.height;
+    const ctx = composite.getContext('2d')!;
+    ctx.drawImage(bg, 0, 0);
+    ctx.drawImage(dw, 0, 0);
+    return composite;
   }
 }
 

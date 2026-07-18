@@ -3,11 +3,13 @@ import { ViewportManager } from './ViewportManager';
 export class Renderer {
   private mainCanvas: HTMLCanvasElement;
   private draftCanvas: HTMLCanvasElement;
-  private documentCanvas: HTMLCanvasElement;
+  private backgroundCanvas: HTMLCanvasElement;
+  private drawingCanvas: HTMLCanvasElement;
   
   private mainCtx: CanvasRenderingContext2D;
   private draftCtx: CanvasRenderingContext2D;
-  private documentCtx: CanvasRenderingContext2D;
+  private backgroundCtx: CanvasRenderingContext2D;
+  private drawingCtx: CanvasRenderingContext2D;
   
   private dpr: number = 1;
 
@@ -22,8 +24,11 @@ export class Renderer {
     this.mainCtx = mCtx;
     this.draftCtx = dCtx;
     
-    this.documentCanvas = document.createElement('canvas');
-    this.documentCtx = this.documentCanvas.getContext('2d', { willReadFrequently: true })!;
+    this.backgroundCanvas = document.createElement('canvas');
+    this.backgroundCtx = this.backgroundCanvas.getContext('2d', { willReadFrequently: true })!;
+    
+    this.drawingCanvas = document.createElement('canvas');
+    this.drawingCtx = this.drawingCanvas.getContext('2d', { willReadFrequently: true })!;
     
     this.dpr = window.devicePixelRatio || 1;
   }
@@ -32,12 +37,20 @@ export class Renderer {
     return this.dpr;
   }
 
-  public getDocumentCanvas(): HTMLCanvasElement {
-    return this.documentCanvas;
+  public getBackgroundCanvas(): HTMLCanvasElement {
+    return this.backgroundCanvas;
   }
 
-  public getDocumentCtx(): CanvasRenderingContext2D {
-    return this.documentCtx;
+  public getBackgroundCtx(): CanvasRenderingContext2D {
+    return this.backgroundCtx;
+  }
+
+  public getDrawingCanvas(): HTMLCanvasElement {
+    return this.drawingCanvas;
+  }
+
+  public getDrawingCtx(): CanvasRenderingContext2D {
+    return this.drawingCtx;
   }
 
   public getDraftCtx(): CanvasRenderingContext2D {
@@ -64,8 +77,10 @@ export class Renderer {
   }
 
   public initDocumentSize(physWidth: number, physHeight: number) {
-    this.documentCanvas.width = physWidth;
-    this.documentCanvas.height = physHeight;
+    this.backgroundCanvas.width = physWidth;
+    this.backgroundCanvas.height = physHeight;
+    this.drawingCanvas.width = physWidth;
+    this.drawingCanvas.height = physHeight;
   }
 
   public clearDraft() {
@@ -83,9 +98,10 @@ export class Renderer {
     
     viewportManager.applyToContext(this.mainCtx, this.dpr);
     
-    // documentCanvas is already in physical pixels, so reverse the DPR scale to draw it 1:1
+    // document canvases are already in physical pixels, so reverse the DPR scale to draw them 1:1
     this.mainCtx.scale(1 / this.dpr, 1 / this.dpr);
-    this.mainCtx.drawImage(this.documentCanvas, 0, 0);
+    this.mainCtx.drawImage(this.backgroundCanvas, 0, 0);
+    this.mainCtx.drawImage(this.drawingCanvas, 0, 0);
     
     this.mainCtx.restore();
   }

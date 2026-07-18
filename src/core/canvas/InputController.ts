@@ -54,7 +54,7 @@ export class InputController {
   private getToolContext() {
     const state = useAppStore.getState();
     return {
-      mainCtx: this.renderer.getDocumentCtx(),
+      mainCtx: this.renderer.getDrawingCtx(),
       draftCtx: this.renderer.getDraftCtx(),
       color: state.color,
       brushSize: state.brushSize,
@@ -139,19 +139,19 @@ export class InputController {
     this.renderer.clearDraft();
     
     const point = this.getDocumentCoordinates(e);
-    const documentCtx = this.renderer.getDocumentCtx();
+    const drawingCtx = this.renderer.getDrawingCtx();
     
-    documentCtx.save();
-    documentCtx.scale(this.renderer.getDpr(), this.renderer.getDpr());
+    drawingCtx.save();
+    drawingCtx.scale(this.renderer.getDpr(), this.renderer.getDpr());
     
     const tool = this.getActiveTool();
     if (tool) {
       tool.onPointerUp(point, this.getToolContext(), e);
     }
-    documentCtx.restore();
+    drawingCtx.restore();
     
-    const documentCanvas = this.renderer.getDocumentCanvas();
-    const newData = documentCtx.getImageData(0, 0, documentCanvas.width, documentCanvas.height);
+    const drawingCanvas = this.renderer.getDrawingCanvas();
+    const newData = drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
     this.historyManager.push(newData);
     
     this.renderer.render(this.viewportManager);

@@ -10,38 +10,62 @@ export function OcrTextLayer({ linesData }: Props) {
   return (
     <>
       {linesData.map((line, lineIdx) => {
-        // Find the min X in the logical bounds to align the container
-        const minX = line.charBounds.length > 0 ? line.charBounds[0].x : line.logicalX;
-        
+        const padX = 4;
+        const padY = 2;
+
         return (
           <div
             key={lineIdx}
-            className="absolute whitespace-pre text-transparent ocr-line leading-none"
+            className="absolute rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-text pointer-events-none"
             style={{
-              left: `${line.logicalX}px`,
-              top: `${line.logicalY}px`,
-              width: `${line.logicalW}px`,
-              height: `${line.logicalH}px`,
-              fontSize: `${line.fontSize}px`,
-              paddingLeft: `${minX - line.logicalX}px`, 
+              left: `${line.logicalX - padX}px`,
+              top: `${line.logicalY - padY}px`,
+              width: `${line.logicalW + padX * 2}px`,
+              height: `${line.logicalH + padY * 2}px`,
             }}
+            title={line.text}
           >
-            {line.charBounds.map((bounds, charIdx) => {
-              const charId = `char-${lineIdx}-${charIdx}`;
-              return (
-                <span
-                  id={charId}
-                  key={charIdx}
-                  className="ocr-char inline-block"
-                  style={{
-                    width: `${bounds.w}px`,
-                    height: `${bounds.h}px`,
-                  }}
-                >
-                  {bounds.char}
-                </span>
-              );
-            })}
+            <div 
+              className="w-full h-full relative"
+              style={{ 
+                whiteSpace: 'nowrap',
+                // Ensure the first character starts at its true physical offset, restoring the padX alignment
+                paddingLeft: `${line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX}px`
+              }}
+            >
+              {(() => {
+                let currentX = line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX;
+                return line.charBounds.map((bounds, charIdx) => {
+                  const isLast = charIdx === line.charBounds.length - 1;
+                  
+                  const spanLeft = currentX;
+                  const expectedRight = isLast ? (line.logicalW + padX * 2) : (line.charBounds[charIdx + 1].x - line.logicalX + padX);
+                  const spanWidth = Math.max(0, expectedRight - spanLeft);
+                  
+                  currentX = spanLeft + spanWidth;
+
+                  return (
+                    <span
+                      key={charIdx}
+                      data-line-idx={lineIdx}
+                      data-char-idx={charIdx}
+                      className="ocr-char inline-block select-text pointer-events-auto selection:bg-transparent selection:text-transparent"
+                      style={{
+                        width: `${spanWidth}px`,
+                        height: '100%',
+                        color: 'transparent',
+                        fontSize: `${Math.max(line.logicalH * 0.8, 12)}px`,
+                        lineHeight: `${line.logicalH + padY * 2}px`,
+                        overflow: 'hidden',
+                        verticalAlign: 'top',
+                      }}
+                    >
+                      {bounds.char}
+                    </span>
+                  );
+                });
+              })()}
+            </div>
           </div>
         );
       })}

@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useOcrStore } from '../../store/useOcrStore';
 import { ViewportManager } from '../../core/canvas/ViewportManager';
-import { DOCUMENT_PADDING } from '../../core/canvas/CanvasEngine';
 import { useOcrDataTransformer } from '../../hooks/useOcrDataTransformer';
 import { useCustomSelectionEngine } from '../../hooks/useCustomSelectionEngine';
 import { OcrHighlightLayer } from './OcrHighlightLayer';
@@ -34,7 +33,7 @@ export function OcrOverlay({ viewportManager }: Props) {
   // 3. Custom Selection Engine (Event Listener Layer)
   const highlightRects = useCustomSelectionEngine(overlayRef, linesData);
 
-  if (status !== 'done' || !result || !(result as any).words || !isOcrModeActive) {
+  if (status !== 'done' || !result || !(result as any).lines || !isOcrModeActive) {
     return null;
   }
 
@@ -42,11 +41,8 @@ export function OcrOverlay({ viewportManager }: Props) {
   return (
     <div
       ref={overlayRef}
-      className="absolute top-0 left-0"
-      style={{
-        left: `${DOCUMENT_PADDING}px`,
-        top: `${DOCUMENT_PADDING}px`,
-      }}
+      className="absolute top-0 left-0 pointer-events-auto"
+      style={{ width: 0, height: 0, willChange: 'transform' }}
     >
       <OcrHighlightLayer rects={highlightRects} />
       <OcrTextLayer linesData={linesData} />

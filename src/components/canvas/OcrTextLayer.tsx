@@ -16,7 +16,7 @@ export function OcrTextLayer({ linesData }: Props) {
         return (
           <div
             key={lineIdx}
-            className="absolute rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors cursor-text pointer-events-none"
+            className="absolute rounded mix-blend-difference bg-white/15 hover:bg-white/30 transition-colors cursor-text pointer-events-none"
             style={{
               left: `${line.logicalX - padX}px`,
               top: `${line.logicalY - padY}px`,
@@ -25,9 +25,9 @@ export function OcrTextLayer({ linesData }: Props) {
             }}
             title={line.text}
           >
-            <div 
+            <div
               className="w-full h-full relative"
-              style={{ 
+              style={{
                 whiteSpace: 'nowrap',
                 // Ensure the first character starts at its true physical offset, restoring the padX alignment
                 paddingLeft: `${line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX}px`
@@ -37,11 +37,11 @@ export function OcrTextLayer({ linesData }: Props) {
                 let currentX = line.charBounds[0] ? (line.charBounds[0].x - line.logicalX + padX) : padX;
                 return line.charBounds.map((bounds, charIdx) => {
                   const isLast = charIdx === line.charBounds.length - 1;
-                  
+
                   const spanLeft = currentX;
                   const expectedRight = isLast ? (line.logicalW + padX * 2) : (line.charBounds[charIdx + 1].x - line.logicalX + padX);
                   const spanWidth = Math.max(0, expectedRight - spanLeft);
-                  
+
                   currentX = spanLeft + spanWidth;
 
                   return (

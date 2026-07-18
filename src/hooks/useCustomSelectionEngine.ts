@@ -14,6 +14,14 @@ export function useCustomSelectionEngine(
 ): HighlightRect[] {
   const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
 
+  // Clear native selection when the OCR layer mounts or data changes
+  // This prevents the browser from automatically restoring phantom selections
+  // from previous renders or other parts of the app.
+  useEffect(() => {
+    window.getSelection()?.removeAllRanges();
+    setHighlightRects([]);
+  }, [linesData]);
+
   useEffect(() => {
     const handleSelectionChange = () => {
       const sel = window.getSelection();

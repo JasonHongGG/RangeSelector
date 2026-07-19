@@ -98,26 +98,35 @@ pub fn get_magnifier_region(
         let mut img = RgbaImage::from_raw(raw.width, raw.height, raw.rgba.clone())
             .ok_or("Failed to parse raw image")?;
 
-        let half = size / 2;
-        let crop_x = if x > half { x - half } else { 0 };
-        let crop_y = if y > half { y - half } else { 0 };
+        let half = size as i32 / 2;
+        let left = x as i32 - half;
+        let top = y as i32 - half;
+        let right = left + size as i32;
+        let bottom = top + size as i32;
 
-        let crop_width = if crop_x + size > raw.width {
-            raw.width - crop_x
-        } else {
-            size
-        };
-        let crop_height = if crop_y + size > raw.height {
-            raw.height - crop_y
-        } else {
-            size
-        };
+        let src_x = left.max(0) as u32;
+        let src_y = top.max(0) as u32;
+        
+        let src_right = right.min(raw.width as i32) as u32;
+        let src_bottom = bottom.min(raw.height as i32) as u32;
 
-        let cropped =
-            image::imageops::crop(&mut img, crop_x, crop_y, crop_width, crop_height).to_image();
+        let src_width = if src_right > src_x { src_right - src_x } else { 0 };
+        let src_height = if src_bottom > src_y { src_bottom - src_y } else { 0 };
+
+        let dst_x = (src_x as i32 - left) as i64;
+        let dst_y = (src_y as i32 - top) as i64;
+
+        // 建立一張完全透明 (或全黑) 的空白底圖，大小為固定的 size x size
+        let mut final_img = RgbaImage::new(size, size);
+        
+        // 將合法的螢幕區域裁切下來，並「貼」到空白底圖的正確位置上
+        if src_width > 0 && src_height > 0 {
+            let cropped = image::imageops::crop(&mut img, src_x, src_y, src_width, src_height).to_image();
+            image::imageops::overlay(&mut final_img, &cropped, dst_x, dst_y);
+        }
 
         // Fast encode for magnifier
-        encode_png_base64(&cropped, true)
+        encode_png_base64(&final_img, true)
     } else {
         Err("No capture ready".into())
     }

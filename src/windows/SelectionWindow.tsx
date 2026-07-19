@@ -171,17 +171,24 @@ export function SelectionWindow() {
         backgroundColor: 'transparent' // Completely transparent, we see the real desktop
       }}
     >
-      <div className={`absolute inset-0 bg-black/30 pointer-events-none transition-opacity ${isSelecting ? 'opacity-0' : 'opacity-100'}`} />
+      {/* Background Mask when not selecting */}
+      {!isSelecting && (
+        <div className="absolute inset-0 bg-black/30 pointer-events-none" />
+      )}
 
       {isSelecting && (
-        <div
-          className="absolute border border-white/30"
-          style={{
-            ...selectStyle,
-            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.3)',
-          }}
-        >
-          <div className="absolute -top-[1px] -left-[1px] w-3 h-3 border-t-2 border-l-2 border-blue-400" />
+        <>
+          {/* 4-pane masking to replace boxShadow and fix double-mask flickering */}
+          <div className="absolute top-0 left-0 right-0 bg-black/30 pointer-events-none" style={{ height: selectStyle.top }} />
+          <div className="absolute left-0 bg-black/30 pointer-events-none" style={{ top: selectStyle.top, height: selectStyle.height, width: selectStyle.left }} />
+          <div className="absolute right-0 bg-black/30 pointer-events-none" style={{ top: selectStyle.top, height: selectStyle.height, left: selectStyle.left + selectStyle.width }} />
+          <div className="absolute bottom-0 left-0 right-0 bg-black/30 pointer-events-none" style={{ top: selectStyle.top + selectStyle.height }} />
+
+          <div
+            className="absolute border border-white/30"
+            style={selectStyle}
+          >
+            <div className="absolute -top-[1px] -left-[1px] w-3 h-3 border-t-2 border-l-2 border-blue-400" />
           <div className="absolute -top-[1px] -right-[1px] w-3 h-3 border-t-2 border-r-2 border-blue-400" />
           <div className="absolute -bottom-[1px] -left-[1px] w-3 h-3 border-b-2 border-l-2 border-blue-400" />
           <div className="absolute -bottom-[1px] -right-[1px] w-3 h-3 border-b-2 border-r-2 border-blue-400" />
@@ -190,6 +197,7 @@ export function SelectionWindow() {
             {Math.round(selectStyle.width)} × {Math.round(selectStyle.height)}
           </div>
         </div>
+        </>
       )}
 
       {/* HUD Viewfinder Magnifier */}

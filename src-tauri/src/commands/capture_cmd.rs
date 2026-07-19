@@ -6,6 +6,11 @@ use image::{ColorType, ImageEncoder, RgbaImage};
 use std::io::Cursor;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::HWND;
+#[cfg(target_os = "windows")]
+use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND};
+
 fn encode_png_base64(img: &RgbaImage, fast: bool) -> Result<String, String> {
     let mut buffer = Cursor::new(Vec::new());
     let encoder = PngEncoder::new_with_quality(
@@ -54,6 +59,23 @@ pub fn perform_capture_flow(app: AppHandle, state: State<'_, AppState>) -> Resul
 
             // 3. 截圖完成後，顯示選取視窗供使用者操作
             if let Some(selection_window) = app_clone.get_webview_window("selection-window") {
+                #[cfg(target_os = "windows")]
+                {
+                    if let Ok(hwnd) = selection_window.hwnd() {
+                        // Cast the isize/pointer to our windows crate HWND
+                        let hwnd_win32 = HWND(hwnd.0 as _);
+                        let preference: i32 = DWMWCP_DONOTROUND.0;
+                        unsafe {
+                            let _ = DwmSetWindowAttribute(
+                                hwnd_win32,
+                                DWMWA_WINDOW_CORNER_PREFERENCE,
+                                &preference as *const i32 as *const _,
+                                std::mem::size_of::<i32>() as u32,
+                            );
+                        }
+                    }
+                }
+                
                 let _ = selection_window.show();
                 let _ = selection_window.set_focus();
             }

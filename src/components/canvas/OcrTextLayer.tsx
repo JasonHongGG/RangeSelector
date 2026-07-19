@@ -16,7 +16,7 @@ export function OcrTextLayer({ linesData }: Props) {
         return (
           <div
             key={lineIdx}
-            className="absolute rounded mix-blend-difference bg-white/15 hover:bg-white/30 transition-colors cursor-text pointer-events-none"
+            className="absolute rounded mix-blend-difference bg-white/15 cursor-text pointer-events-none"
             style={{
               left: `${line.logicalX - padX}px`,
               top: `${line.logicalY - padY}px`,

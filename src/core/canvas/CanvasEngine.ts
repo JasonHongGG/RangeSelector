@@ -21,7 +21,6 @@ export class CanvasEngine {
   private logicalImageWidth: number = 0;
   private logicalImageHeight: number = 0;
   private hasImageLoaded: boolean = false;
-  private hasAutoFit: boolean = false;
 
   constructor(
     wrapper: HTMLDivElement, 
@@ -82,11 +81,10 @@ export class CanvasEngine {
   }
 
   private tryAutoFit() {
-    if (this.hasImageLoaded && !this.hasAutoFit) {
+    if (this.hasImageLoaded) {
       const cw = this.viewportManager.getContainerWidth();
       if (cw > 0) {
         this.viewportManager.autoFit(this.logicalImageWidth, this.logicalImageHeight, DOCUMENT_PADDING);
-        this.hasAutoFit = true;
       }
     }
   }
@@ -117,10 +115,9 @@ export class CanvasEngine {
         
         this.logicalImageWidth = img.width / this.dpr;
         this.logicalImageHeight = img.height / this.dpr;
-
-        this.viewportManager.autoFit(this.logicalImageWidth, this.logicalImageHeight, DOCUMENT_PADDING);
         this.hasImageLoaded = true;
-        this.tryAutoFit();
+
+        this.viewportManager.autoFit(this.logicalImageWidth, this.logicalImageHeight, DOCUMENT_PADDING, true);
         
         resolve();
       };

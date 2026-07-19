@@ -23,6 +23,8 @@ export class ViewportManager {
   private lastPanX: number = 0;
   private lastPanY: number = 0;
   
+  private isUserModified: boolean = false;
+  
   private subscribers: Set<Subscriber> = new Set();
   
   private readonly minZoom = 0.1;
@@ -39,6 +41,7 @@ export class ViewportManager {
   public getZoom(): number { return this.zoom; }
   public getCameraX(): number { return this.cameraX; }
   public getCameraY(): number { return this.cameraY; }
+  public getIsUserModified(): boolean { return this.isUserModified; }
 
   public resize(width: number, height: number) {
     this.containerWidth = width;
@@ -47,19 +50,28 @@ export class ViewportManager {
     this.onRenderNeeded();
   }
 
-  public autoFit(imageWidth: number, imageHeight: number, padding: number) {
-    const targetWidth = this.containerWidth;
-    const targetHeight = this.containerHeight;
+  public autoFit(imageWidth: number, imageHeight: number, padding: number, force: boolean = false) {
+    // If user has modified the viewport and we are not forcing it, skip autoFit
+    if (this.isUserModified && !force) {
+      return;
+    }
+    
+    // The available space for the actual image content is container size minus a small visual margin.
+    const visualMargin = 40; // 20px padding on each side for visual breathing room
+    const availableWidth = Math.max(1, this.containerWidth - visualMargin);
+    const availableHeight = Math.max(1, this.containerHeight - visualMargin);
     
     if (imageWidth === 0 || imageHeight === 0) return;
 
-    const scaleX = targetWidth / imageWidth;
-    const scaleY = targetHeight / imageHeight;
+    const scaleX = availableWidth / imageWidth;
+    const scaleY = availableHeight / imageHeight;
     
     this.zoom = Math.min(1, scaleX, scaleY);
     
     this.cameraX = (imageWidth + padding * 2) / 2;
     this.cameraY = (imageHeight + padding * 2) / 2;
+    
+    this.isUserModified = false;
     
     this.notifySubscribers();
     this.onRenderNeeded();
@@ -97,6 +109,8 @@ export class ViewportManager {
     this.cameraX += pointBefore.x - pointAfter.x;
     this.cameraY += pointBefore.y - pointAfter.y;
     
+    this.isUserModified = true;
+    
     this.notifySubscribers();
     this.onRenderNeeded();
   }
@@ -118,6 +132,8 @@ export class ViewportManager {
     
     this.lastPanX = screenX;
     this.lastPanY = screenY;
+    
+    this.isUserModified = true;
     
     this.notifySubscribers();
     this.onRenderNeeded();

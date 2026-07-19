@@ -74,30 +74,20 @@ export function MainWindow() {
   useEffect(() => {
     let active = true;
     if (isEditing && imageSrc) {
-      const img = new Image();
-      img.onload = async () => {
-        if (!active) return;
-        const dpr = window.devicePixelRatio || 1;
-        const logicalWidth = img.width / dpr;
-        const logicalHeight = img.height / dpr;
-        
-        await WindowService.setExpandedMode(logicalWidth, logicalHeight);
-        
-        if (!active) return;
-        
-        // Delay to allow OS window to finish physical resize
-        setTimeout(() => {
-          if (active) setIsWindowExpanded(true);
-        }, 150);
+      const expandWindow = async () => {
+        if (!isWindowExpanded) {
+          await WindowService.setExpandedMode();
+        }
+        if (active) setIsWindowExpanded(true);
       };
-      img.src = imageSrc;
+      expandWindow();
     } else {
       setIsWindowExpanded(false);
       WindowService.setCompactMode();
     }
     
     return () => { active = false; };
-  }, [isEditing, imageSrc]);
+  }, [isEditing, imageSrc, isWindowExpanded]);
 
   const handleCapture = async () => {
     try {
